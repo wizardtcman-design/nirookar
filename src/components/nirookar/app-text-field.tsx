@@ -21,6 +21,8 @@ interface AppTextFieldProps {
   inputMode?: "text" | "tel" | "email";
   /** onDark برای کارت تیره نصاب */
   tone?: "light" | "onDark";
+  /** غیرفعال — برای فیلدهای نمایشی که در فازهای بعد فعال می‌شوند */
+  disabled?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function AppTextField({
   autoComplete,
   inputMode,
   tone = "light",
+  disabled,
 }: AppTextFieldProps) {
   const isPassword = type === "password";
   const hasToggle = isPassword && Boolean(onToggleReveal);
@@ -71,12 +74,14 @@ export function AppTextField({
           autoComplete={autoComplete}
           inputMode={inputMode}
           dir="ltr"
+          disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
           className={cn(
             "h-12 w-full rounded-xl border bg-white px-4 text-[15px] text-slate-900 outline-none transition-shadow placeholder:text-slate-400",
             Icon && "pl-11",
             hasToggle && "pr-12",
+            disabled && "cursor-not-allowed bg-slate-50 text-slate-400",
             error
               ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100"
               : "border-slate-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/15",

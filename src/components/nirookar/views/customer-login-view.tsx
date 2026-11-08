@@ -43,8 +43,8 @@ export function CustomerLoginView() {
     <div className="flex min-h-screen flex-col">
       <SubPageHeader title={role.title} />
 
-      <main className="flex-1 px-4 pb-8 pt-5">
-        <section className="mx-auto w-full max-w-sm rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
+      <main className="flex-1 px-4 pb-8 pt-5 lg:py-14">
+        <section className="mx-auto w-full max-w-sm rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:max-w-md">
           <div className="flex flex-col items-center text-center">
             <span className="flex size-20 items-center justify-center rounded-full bg-brand-slate-light text-brand-navy">
               <UserCheck className="size-10" strokeWidth={1.6} aria-hidden="true" />

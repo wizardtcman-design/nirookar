@@ -21,7 +21,7 @@ export function GuideView() {
       <SubPageHeader title="راهنما" />
 
       <main className="flex-1 px-4 pb-32 pt-5">
-        <div className="mx-auto w-full max-w-sm space-y-4">
+        <div className="mx-auto w-full max-w-sm space-y-4 sm:max-w-xl lg:max-w-3xl">
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
             <h2 className="text-base font-extrabold text-brand-navy">نیروکار چیست؟</h2>
             <p className="mt-2 text-[13px] leading-7 text-slate-600">

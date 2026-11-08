@@ -15,17 +15,21 @@ export type ViewId =
   | "home"
   | "guide"
   | "about"
+  | "status"
   | "login-customer"
   | "login-installer"
-  | "login-shop";
+  | "login-shop"
+  | "admin";
 
 const VIEW_ROUTES: Record<ViewId, string> = {
   home: "#/",
   guide: "#/guide",
   about: "#/about",
+  status: "#/status",
   "login-customer": "#/login/customer",
   "login-installer": "#/login/installer",
   "login-shop": "#/login/shop",
+  admin: "#/admin",
 };
 
 const ROUTE_TO_VIEW = new Map<string, ViewId>(
@@ -34,6 +38,8 @@ const ROUTE_TO_VIEW = new Map<string, ViewId>(
 
 function parseHash(hash: string): ViewId {
   const route = hash === "" || hash === "#" ? "#/" : hash;
+  // تمام زیرمسیرهای پنل مدیریت (#/admin/users، #/admin/orders و ...) یک نما هستند
+  if (route.startsWith("#/admin")) return "admin";
   return ROUTE_TO_VIEW.get(route) ?? "home";
 }
 
@@ -61,6 +67,24 @@ export function navigateToView(view: ViewId): void {
   const target = VIEW_ROUTES[view];
   if (window.location.hash === target) return;
   window.location.hash = target;
+}
+
+/** مسیر خام hash (بدون #) — برای زیرمسیرهای پنل مدیریت مانند /admin/users */
+export function getHashPath(): string {
+  if (typeof window === "undefined") return "/";
+  const hash = window.location.hash;
+  return hash === "" || hash === "#" ? "/" : hash.slice(1);
+}
+
+/** هوک مسیر خام — در پنل مدیریت برای تعیین بخش فعال استفاده می‌شود */
+export function useHashPath(): string {
+  return useSyncExternalStore(subscribe, getHashPath, () => "/");
+}
+
+/** جابه‌جایی به یک بخش پنل مدیریت */
+export function navigateToAdminSection(section: string): void {
+  if (typeof window === "undefined") return;
+  window.location.hash = `#/admin/${section}`;
 }
 
 /** نماهایی که نوار ناوبری پایین دارند */

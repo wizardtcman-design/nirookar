@@ -22,9 +22,10 @@ export function BottomNav({ current }: { current: ViewId }) {
   if (!isTabView(current)) return null;
 
   return (
+    // در دسکتاپ ناوبری بالای صفحه جایگزین می‌شود؛ نوار پایین فقط موبایل/تبلت است
     <nav
       aria-label="ناوبری اصلی"
-      className="fixed inset-x-0 bottom-0 z-40 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2"
+      className="fixed inset-x-0 bottom-0 z-40 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 lg:hidden"
     >
       <div className="mx-auto w-full max-w-md px-4 sm:max-w-lg">
         <div className="flex items-stretch justify-around rounded-3xl border border-slate-200/80 bg-white/95 py-2 shadow-lg shadow-slate-900/5 backdrop-blur">

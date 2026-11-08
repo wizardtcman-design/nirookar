@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "نیروکار",
+    "slug": "nirookar",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "nirookar",
+    "userInterfaceStyle": "light",
+    "description": "بازارگاه چندخدمتی خدمات فنی، نصب و فروشگاه‌های مرتبط",
+    "ios": {
+      "bundleIdentifier": "ir.nirookar.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "fa",
+        "CFBundleAllowMixedLocalizations": true
+      }
+    },
+    "android": {
+      "package": "ir.nirookar.app",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "plugins": ["expo-router"]
+  }
+}

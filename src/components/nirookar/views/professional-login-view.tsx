@@ -84,7 +84,7 @@ function RoleLoginForm({ roleId, variant, focused }: RoleLoginFormProps) {
         <AppTextField
           id={`${roleId}-identifier`}
           name="identifier"
-          tone={variant}
+          tone={dark ? "onDark" : "light"}
           label={role.identifierLabel}
           placeholder={role.identifierPlaceholder}
           icon={Phone}
@@ -97,7 +97,7 @@ function RoleLoginForm({ roleId, variant, focused }: RoleLoginFormProps) {
         <AppTextField
           id={`${roleId}-password`}
           name="password"
-          tone={variant}
+          tone={dark ? "onDark" : "light"}
           label="رمز عبور"
           type="password"
           placeholder="رمز عبور خود را وارد کنید"
@@ -165,12 +165,13 @@ export function ProfessionalLoginView({ focus }: { focus: ProfessionalRole }) {
       <main className="flex-1 px-4 pb-10 pt-6">
         <p className="text-center text-sm text-slate-500">لطفاً نوع ورود خود را انتخاب کنید</p>
 
-        <div className="mx-auto mt-5 flex w-full max-w-sm flex-col">
+        {/* موبایل: ستونی (طراحی قبلی) — دسکتاپ: دو فرم کنار هم */}
+        <div className="mx-auto mt-5 grid w-full max-w-sm gap-0 lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-8">
           <div ref={installerRef} className="scroll-mt-20">
             <RoleLoginForm roleId="installer" variant="dark" focused={focus === "installer"} />
           </div>
 
-          <div aria-hidden="true" className="relative z-10 -my-5 flex justify-center">
+          <div aria-hidden="true" className="relative z-10 -my-5 flex justify-center lg:hidden">
             <span className="flex size-12 items-center justify-center rounded-full border border-slate-200 bg-white text-lg font-black text-slate-400 shadow-md">
               /
             </span>
@@ -181,7 +182,7 @@ export function ProfessionalLoginView({ focus }: { focus: ProfessionalRole }) {
           </div>
         </div>
 
-        <div className="mx-auto mt-9 grid w-full max-w-sm grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200/70 bg-white/70 py-3.5">
+        <div className="mx-auto mt-9 grid w-full max-w-sm grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200/70 bg-white/70 py-3.5 lg:max-w-5xl">
           {FEATURE_CHIPS.map(({ icon: Icon, title, sub, color }) => (
             <div key={title} className="flex flex-col items-center gap-1 px-2 text-center">
               <Icon className={cn("size-5", color)} strokeWidth={1.9} aria-hidden="true" />
