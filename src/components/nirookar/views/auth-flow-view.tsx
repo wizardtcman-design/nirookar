@@ -49,7 +49,7 @@ interface PlatformConfig {
  * جریان واقعی ورود و ثبت‌نام — فاز ۲ گام ۲ (نسخه 0.1.2) — دو حالته.
  *
  * حالت پیش‌فرض (otpEnabled خاموش در پنل مدیریت):
- *   ورود = شماره موبایل + رمز عبور / ثبت‌نام = موبایل + کد ملی یکتا + نام + رمز
+ *   ورود = شماره موبایل + رمز عبور / ثبت‌نام = موبایل + کد ملی (یکتا به‌ازای هر نقش) + نام + رمز
  *   عبور + فیلد اختصاصی نقش (نصاب: تخصص و سابقه / فروشگاه: نام فروشگاه).
  *   کاربر بلافاصله وارد پنل شخصی خود می‌شود؛ مدارک نصاب/فروشگاه بعداً از کارت
  *   «تکمیل احراز هویت و مدارک» همان پنل ارسال می‌شود.
@@ -105,7 +105,8 @@ export function AuthFlowView({ role }: { role: UserRole }) {
     setSubmitting(true);
     setError(null);
     try {
-      const user = await authRepository.loginWithPassword(value, password);
+      // چندنقشی (0.1.3): نقش این فرم برای اولویت انتخاب حساب ارسال می‌شود
+      const user = await authRepository.loginWithPassword(value, password, role);
       applyLoginResult(user);
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "خطای نامشخص");
@@ -147,7 +148,8 @@ export function AuthFlowView({ role }: { role: UserRole }) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await authRepository.verifyOtp(phone, code);
+      // چندنقشی (0.1.3): نقش این فرم برای اولویت انتخاب حساب ارسال می‌شود
+      const result = await authRepository.verifyOtp(phone, code, role);
       if (result.isNew) {
         setStep("register");
         return;
@@ -682,7 +684,7 @@ function CustomerRegisterForm({
       <AppTextField
         id="c-nid"
         name="nationalId"
-        label="کد ملی (الزامی و یکتا)"
+        label="کد ملی (الزامی — یکتا در هر نقش)"
         placeholder="کد ملی ۱۰ رقمی"
         value={nationalId}
         onChange={(v) => {
@@ -691,7 +693,7 @@ function CustomerRegisterForm({
         }}
         error={errors.nationalId}
         inputMode="numeric"
-        hint="هر کد ملی فقط یک حساب در نیروکار می‌سازد"
+        hint="در هر نقش فقط یک حساب؛ با همان کد ملی می‌توانید در نقش‌های دیگر هم حساب داشته باشید"
       />
       {passwordMode ? (
         <PasswordField id="c-password" value={password} onChange={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: undefined })); }} error={errors.password} />
@@ -786,7 +788,7 @@ function InstallerRegisterForm({
         <AppTextField id="i-last" name="lastName" label="نام خانوادگی" placeholder="مثلاً کریمی" value={lastName} onChange={(v) => setLastName(v)} error={errors.lastName} autoComplete="family-name" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppTextField id="i-nid" name="nationalId" label="کد ملی (الزامی و یکتا)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
+        <AppTextField id="i-nid" name="nationalId" label="کد ملی (الزامی — یکتا در هر نقش)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
         <CitySelect id="i-city" cities={cities} value={city} onChange={setCity} error={errors.city} />
       </div>
       {passwordMode ? (
@@ -921,7 +923,7 @@ function ShopRegisterForm({
         <AppTextField id="s-last" name="lastName" label="نام خانوادگی مالک" placeholder="مثلاً رضایی" value={lastName} onChange={(v) => setLastName(v)} error={errors.lastName} autoComplete="family-name" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppTextField id="s-nid" name="nationalId" label="کد ملی مالک (الزامی و یکتا)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
+        <AppTextField id="s-nid" name="nationalId" label="کد ملی مالک (الزامی — یکتا در نقش فروشگاه)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
         <CitySelect id="s-city" cities={cities} value={city} onChange={setCity} error={errors.city} />
       </div>
       {passwordMode ? (

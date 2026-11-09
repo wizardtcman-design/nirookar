@@ -21,16 +21,23 @@ datasource db {
  * نقش‌های مدیریتی فقط با seed سیستم ایجاد می‌شوند و از طریق ثبت‌نام عمومی ساخته نمی‌شوند.
  *
  * فاز ۲ گام ۲ (0.1.2):
- * - nationalId روی خود کاربر یونیک است (قفل یکتایی کد ملی در سراسر پلتفرم، همه نقش‌ها).
  * - passwordHash برای حالت ورود با رمز عبور (سوئیچ otpEnabled خاموش) — scrypt با salt.
- * - حساب‌های قدیمی OTP و حساب‌های مدیریتی Sandbox این دو فیلد را null دارند.
+ *
+ * فاز ۲ گام ۳ (0.1.3) — قانون یکتایی به‌ازای هر نقش (دستور مالک):
+ * - یک کد ملی یا شماره موبایل در «هر نقش» فقط یک حساب می‌تواند داشته باشد
+ *   (مثلاً دو اکانت نصاب با یک کد ملی ممنوع).
+ * - اما همان شخص با همان کد ملی/موبایل می‌تواند در نقش‌های دیگر هم حساب
+ *   جداگانه داشته باشد (نصاب + مشتری + فروشگاه = حداکثر ۳ حساب با کد ملی واحد).
+ * - قفل یکتایی: ترکیب (phone, role) و (nationalId, role) — نه سراسری.
+ * - هشدار ادمین (Audit Log) فقط برای تکرار در «همان نقش» صادر می‌شود.
+ * - حساب‌های قدیمی OTP و حساب‌های مدیریتی Sandbox رمز پیش‌فرض 123456 دارند.
  */
 model User {
   id           String   @id @default(cuid())
-  phone        String   @unique
+  phone        String
   role         String
   displayName  String
-  nationalId   String?  @unique
+  nationalId   String?
   passwordHash String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -39,6 +46,11 @@ model User {
   installerProfile InstallerProfile?
   shopProfile      ShopProfile?
   sessions         Session[]
+
+  @@unique([phone, role])
+  @@unique([nationalId, role])
+  @@index([phone])
+  @@index([nationalId])
 }
 
 /** پروفایل مشتری — حداقل داده؛ عکس اختیاری طبق قانون */
@@ -60,6 +72,10 @@ model CustomerProfile {
  * «تکمیل احراز هویت و مدارک» در پنل شخصی نصاب ارسال و وضعیت به PENDING_VERIFICATION
  * تغییر می‌کند؛ سپس با تأیید حضوری قرارداد و سفته توسط ادمین: ACTIVE.
  * فیلدهای nullable یعنی «هنوز از پنل شخصی ارسال نشده».
+ *
+ * فاز ۲ گام ۳ (0.1.3): جدول‌های پروفایل به‌ازای هر نقش‌اند؛ nationalId یونیک در
+ * همین جدول یعنی «حداکثر یک پرونده نصاب به‌ازای هر کد ملی» — همان شخص می‌تواند
+ * در جدول پروفایل نقش‌های دیگر (مشتری/فروشگاه) هم پرونده داشته باشد.
  */
 model InstallerProfile {
   id                String    @id @default(cuid())
@@ -90,6 +106,8 @@ model InstallerProfile {
  * فاز ۲ گام ۲ (0.1.2): مانند نصاب — ثبت‌نام اولیه (نام فروشگاه + هویت مالک) با وضعیت
  * INCOMPLETE؛ مدارک (کد پستی، آدرس، شبا، لوگو، کارت ملی مالک) از پنل شخصی فروشگاه
  * ارسال می‌شود و وضعیت PENDING_VERIFICATION و سپس ACTIVE (تأیید حضوری ادمین) می‌شود.
+ * فاز ۲ گام ۳ (0.1.3): مانند نصاب — یونیک بودن nationalId فقط داخل همین جدول
+ * (یکتایی به‌ازای نقش فروشگاه) است و مانع حساب همان شخص در نقش‌های دیگر نیست.
  */
 model ShopProfile {
   id               String    @id @default(cuid())

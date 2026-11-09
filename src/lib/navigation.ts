@@ -93,7 +93,12 @@ export function navigateToAdminSection(section: string): void {
   window.location.hash = `#/admin/${section}`;
 }
 
-/** نماهایی که نوار ناوبری پایین دارند */
+/**
+ * نماهایی که نوار ناوبری پایین دارند.
+ *
+ * نسخه 0.1.3: نمای «وضعیت» هم اضافه شد تا هیچ لینک ناوبری‌ای در موبایل
+ * بدون دسترسی نماند (قبلاً فقط از منوی دسکتاپ در دسترس بود).
+ */
 export function isTabView(view: ViewId): boolean {
-  return view === "home" || view === "guide" || view === "about";
+  return view === "home" || view === "guide" || view === "about" || view === "status";
 }

@@ -1,19 +1,27 @@
 "use client";
 
-import { CircleQuestionMark, House, Info, type LucideIcon } from "lucide-react";
+import { CircleQuestionMark, House, Info, LineChart, type LucideIcon } from "lucide-react";
 
 import { isTabView, navigateToView, type ViewId } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface TabItem {
-  view: Extract<ViewId, "home" | "guide" | "about">;
+  view: Extract<ViewId, "home" | "guide" | "about" | "status">;
   label: string;
   icon: LucideIcon;
 }
 
+/**
+ * نوار ناوبری پایین — شناور، با پشتیبانی از safe-area موبایل.
+ *
+ * نسخه 0.1.3 (جراحی ریسپانسیو): تب «وضعیت» اضافه شد تا هر چهار مقصد ناوبری
+ * دسکتاپ (خانه/راهنما/درباره ما/وضعیت) در موبایل هم ۱۰۰٪ قابل دسترس باشند؛
+ * عرض هر تب برای جای‌گرفتن چهار تب در باریک‌ترین عرض (۳۶۰px) تنظیم شده است.
+ */
 const TABS: readonly TabItem[] = [
   { view: "home", label: "خانه", icon: House },
   { view: "guide", label: "راهنما", icon: CircleQuestionMark },
+  { view: "status", label: "وضعیت", icon: LineChart },
   { view: "about", label: "درباره ما", icon: Info },
 ] as const;
 
@@ -27,7 +35,7 @@ export function BottomNav({ current }: { current: ViewId }) {
       aria-label="ناوبری اصلی"
       className="fixed inset-x-0 bottom-0 z-40 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 lg:hidden"
     >
-      <div className="mx-auto w-full max-w-md px-4 sm:max-w-lg">
+      <div className="mx-auto w-full max-w-md px-3 sm:max-w-lg sm:px-4">
         <div className="flex items-stretch justify-around rounded-3xl border border-slate-200/80 bg-white/95 py-2 shadow-lg shadow-slate-900/5 backdrop-blur">
           {TABS.map(({ view, label, icon: Icon }) => {
             const active = current === view;
@@ -38,7 +46,7 @@ export function BottomNav({ current }: { current: ViewId }) {
                 onClick={() => navigateToView(view)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-[44px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl px-3 text-[11px] font-semibold transition-colors",
+                  "flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10.5px] font-semibold transition-colors sm:text-[11px]",
                   active ? "text-brand-navy" : "text-slate-400 hover:text-slate-600",
                 )}
               >

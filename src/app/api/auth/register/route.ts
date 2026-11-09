@@ -13,12 +13,15 @@ import { ensureSeed } from "@/server/seed";
 import { createSession } from "@/server/session";
 
 /**
- * POST /api/auth/register — ثبت‌نام اولیه سه نقش (فاز ۲ گام ۲ — نسخه 0.1.2).
+ * POST /api/auth/register — ثبت‌نام اولیه سه نقش (فاز ۲ گام ۳ — نسخه 0.1.3).
  *
- * جریان جدید طبق دستور مالک:
- *  - ثبت‌نام اولیه = «شماره موبایل + کد ملی (الزامی و یکتا در سراسر پلتفرم) +
+ * جریان طبق دستور مالک:
+ *  - ثبت‌نام اولیه = «شماره موبایل + کد ملی (الزامی؛ یکتا به‌ازای هر نقش) +
  *    نام و نام خانوادگی + رمز عبور» + فیلد اختصاصی نقش:
  *      نصاب: تخصص‌ها + سابقه کار قبلی / فروشگاه: نام فروشگاه / مشتری: حداقل داده.
+ *  - قانون یکتایی چندنقشی (0.1.3): یک کد ملی/موبایل در هر نقش فقط یک حساب؛
+ *    همان شخص در نقش‌های دیگر هم می‌تواند حساب جداگانه داشته باشد.
+ *    هشدار ادمین (Audit Log) فقط برای تکرار در «همان نقش» ثبت می‌شود.
  *  - رمز عبور الزامی است مگر وقتی سوئیچ otpEnabled در تنظیمات پنل فعال باشد
  *    (جریان قدیمی OTP — آنجا رمز اختیاری است).
  *  - مدارک (کد پستی، آدرس، شبا، عکس‌ها) دیگر در ثبت‌نام جمع نمی‌شوند؛ از کارت
@@ -67,6 +70,15 @@ async function getPlatformSettings() {
   return sanitizePlatformSettings(JSON.parse(settings.dataJson) as Record<string, unknown>);
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
 export async function POST(request: Request) {
   await ensureSeed();
 
@@ -86,20 +98,22 @@ export async function POST(request: Request) {
   }
   const registerRole = role as RegisterRole;
 
-  const existingPhone = await db.user.findUnique({ where: { phone } });
-  if (existingPhone) {
-    return bad("این شماره قبلاً ثبت شده است؛ لطفاً وارد شوید.", 409);
+  // ── قفل موبایل به‌ازای هر نقش: تکرار در «همان نقش» ممنوع؛ نقش‌های دیگر آزاد ──
+  const existingPhoneSameRole = await db.user.findFirst({ where: { phone, role: registerRole } });
+  if (existingPhoneSameRole) {
+    return bad("این شماره قبلاً برای همین نقش ثبت شده است؛ لطفاً وارد شوید.", 409);
   }
 
-  // ── کد ملی: الزامی و یکتا در سراسر پلتفرم (همه نقش‌ها) ──
+  // ── کد ملی: الزامی و یکتا به‌ازای هر نقش (ترکیب nationalId + role) ──
   const nationalId = normalizeNationalId(body.nationalId);
   if (typeof body.nationalId === "string" && normalizeDigits(body.nationalId).replace(/\D/g, "") && !nationalId) {
     return bad("کد ملی معتبر نیست (الگوریتم صحت‌سنجی ایران رد شد).");
   }
   if (!nationalId) return bad("کد ملی الزامی است و باید معتبر باشد.");
 
-  const duplicateUser = await db.user.findUnique({ where: { nationalId } });
+  const duplicateUser = await db.user.findFirst({ where: { nationalId, role: registerRole } });
   if (duplicateUser) {
+    // هشدار ادمین فقط برای تکرار در «همان نقش» (دستور مالک — نسخه 0.1.3)
     await writeAudit({
       action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
       entityType: "User",
@@ -108,21 +122,35 @@ export async function POST(request: Request) {
         attemptedRole: registerRole,
         existingRole: duplicateUser.role,
         existingName: duplicateUser.displayName,
+        scope: "SAME_ROLE",
       },
     });
-    return bad("این کد ملی قبلاً در نیروکار ثبت شده است (هر کد ملی فقط یک حساب دارد).", 409);
+    return bad("این کد ملی قبلاً در همین نقش ثبت شده است (هر نقش فقط یک حساب).", 409);
   }
-  // پرونده‌های قدیمی که کد ملی‌شان فقط در جدول پروفایل است
-  const legacyInstaller = await db.installerProfile.findUnique({ where: { nationalId } });
-  const legacyShop = legacyInstaller ? null : await db.shopProfile.findUnique({ where: { nationalId } });
-  if (legacyInstaller || legacyShop) {
-    await writeAudit({
-      action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
-      entityType: legacyInstaller ? "InstallerProfile" : "ShopProfile",
-      entityId: (legacyInstaller ?? legacyShop)?.id ?? null,
-      details: { attemptedRole: registerRole, note: "مغایرت با پرونده قدیمی فاز قبل" },
-    });
-    return bad("این کد ملی قبلاً برای یک پرونده ثبت شده است.", 409);
+  // پرونده‌های قدیمی همان نقش که کد ملی‌شان فقط در جدول پروفایل است
+  if (registerRole === "installer") {
+    const legacyInstaller = await db.installerProfile.findUnique({ where: { nationalId } });
+    if (legacyInstaller) {
+      await writeAudit({
+        action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
+        entityType: "InstallerProfile",
+        entityId: legacyInstaller.id,
+        details: { attemptedRole: registerRole, note: "مغایرت با پرونده قدیمی فاز قبل", scope: "SAME_ROLE" },
+      });
+      return bad("این کد ملی قبلاً برای یک پرونده نصاب ثبت شده است.", 409);
+    }
+  }
+  if (registerRole === "shop") {
+    const legacyShop = await db.shopProfile.findUnique({ where: { nationalId } });
+    if (legacyShop) {
+      await writeAudit({
+        action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
+        entityType: "ShopProfile",
+        entityId: legacyShop.id,
+        details: { attemptedRole: registerRole, note: "مغایرت با پرونده قدیمی فاز قبل", scope: "SAME_ROLE" },
+      });
+      return bad("این کد ملی قبلاً برای یک پرونده فروشگاه ثبت شده است.", 409);
+    }
   }
 
   // ── رمز عبور: الزامی در حالت پیش‌فرض (otpEnabled خاموش) ──
@@ -163,19 +191,28 @@ export async function POST(request: Request) {
       return bad("عکس پروفایل معتبر نیست (حجم زیاد یا قالب نامناسب).");
     }
 
-    const user = await db.user.create({
-      data: {
-        phone,
-        role: "customer",
-        displayName: `${firstName} ${lastName}`.trim(),
-        nationalId,
-        passwordHash,
-        customerProfile: {
-          create: { city, neighborhood: neighborhood || null, photoUrl },
+    let user;
+    try {
+      user = await db.user.create({
+        data: {
+          phone,
+          role: "customer",
+          displayName: `${firstName} ${lastName}`.trim(),
+          nationalId,
+          passwordHash,
+          customerProfile: {
+            create: { city, neighborhood: neighborhood || null, photoUrl },
+          },
         },
-      },
-      include: { customerProfile: true },
-    });
+        include: { customerProfile: true },
+      });
+    } catch (createError) {
+      // مسابقه همزمانی: قید یکتایی ترکیبی (phone+role / nationalId+role) سمت DB
+      if (isUniqueViolation(createError)) {
+        return bad("این شماره یا کد ملی قبلاً برای همین نقش ثبت شده است؛ لطفاً وارد شوید.", 409);
+      }
+      throw createError;
+    }
 
     await writeAudit({
       actorId: user.id,
@@ -209,26 +246,34 @@ export async function POST(request: Request) {
       .filter((key) => SPECIALTY_KEYS.includes(key));
     if (!specialties.length) return bad("حداقل یک تخصص را انتخاب کنید.");
 
-    const user = await db.user.create({
-      data: {
-        phone,
-        role: "installer",
-        displayName: fullName,
-        nationalId,
-        passwordHash,
-        installerProfile: {
-          create: {
-            fullName,
-            nationalId,
-            city,
-            workHistory,
-            specialties: JSON.stringify(specialties),
-            status: "INCOMPLETE",
+    let user;
+    try {
+      user = await db.user.create({
+        data: {
+          phone,
+          role: "installer",
+          displayName: fullName,
+          nationalId,
+          passwordHash,
+          installerProfile: {
+            create: {
+              fullName,
+              nationalId,
+              city,
+              workHistory,
+              specialties: JSON.stringify(specialties),
+              status: "INCOMPLETE",
+            },
           },
         },
-      },
-      include: { installerProfile: true },
-    });
+        include: { installerProfile: true },
+      });
+    } catch (createError) {
+      if (isUniqueViolation(createError)) {
+        return bad("این شماره یا کد ملی قبلاً برای نقش نصاب ثبت شده است؛ لطفاً وارد شوید.", 409);
+      }
+      throw createError;
+    }
 
     await writeAudit({
       actorId: user.id,
@@ -266,25 +311,33 @@ export async function POST(request: Request) {
   if (!shopNameCheck.ok) return bad(`نام فروشگاه: ${shopNameCheck.message}`);
   const ownerName = `${firstName} ${lastName}`.trim();
 
-  const user = await db.user.create({
-    data: {
-      phone,
-      role: "shop",
-      displayName: shopName,
-      nationalId,
-      passwordHash,
-      shopProfile: {
-        create: {
-          shopName,
-          ownerName,
-          nationalId,
-          contactPhone: phone,
-          status: "INCOMPLETE",
+  let user;
+  try {
+    user = await db.user.create({
+      data: {
+        phone,
+        role: "shop",
+        displayName: shopName,
+        nationalId,
+        passwordHash,
+        shopProfile: {
+          create: {
+            shopName,
+            ownerName,
+            nationalId,
+            contactPhone: phone,
+            status: "INCOMPLETE",
+          },
         },
       },
-    },
-    include: { shopProfile: true },
-  });
+      include: { shopProfile: true },
+    });
+  } catch (createError) {
+    if (isUniqueViolation(createError)) {
+      return bad("این شماره یا کد ملی قبلاً برای نقش فروشگاه ثبت شده است؛ لطفاً وارد شوید.", 409);
+    }
+    throw createError;
+  }
 
   await writeAudit({
     actorId: user.id,

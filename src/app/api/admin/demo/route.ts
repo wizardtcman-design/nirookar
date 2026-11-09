@@ -42,7 +42,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "نقش نمایشی نامعتبر است." }, { status: 400 });
   }
 
-  const user = await db.user.findUnique({ where: { phone: account.phone } });
+  // یکتایی به‌ازای هر نقش (0.1.3): جستجو با ترکیب (phone, role)
+  const user = await db.user.findFirst({ where: { phone: account.phone, role: account.role } });
   if (!user) {
     return NextResponse.json({ ok: false, error: "حساب نمایشی یافت نشد." }, { status: 404 });
   }

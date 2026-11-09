@@ -7,25 +7,47 @@ import { ensureSeed } from "@/server/seed";
 import { createSession, destroySession, getSessionUser } from "@/server/session";
 
 /**
- * API احراز هویت واقعی — فاز ۲ گام ۲ (دو حالته بر اساس تنظیم otpEnabled).
+ * API احراز هویت واقعی — فاز ۲ گام ۳ (دو حالته بر اساس تنظیم otpEnabled + پشتیبانی چندنقشی).
  *
  * POST با body.action:
  *  - request        : دریافت کد تأیید (فقط وقتی otpEnabled فعال است)
  *  - verify         : تأیید کد → ورود کاربر موجود یا اعلام «کاربر جدید»
  *  - login-password : ورود با شماره موبایل + رمز عبور (حالت پیش‌فرض otpEnabled=false)
  *
- * ⚠️ وقتی otpEnabled خاموش است کد تأیید لازم نیست و ورود با رمز عبور انجام
- * می‌شود؛ سوئیچ از پنل مدیریت (تنظیمات) کنترل می‌شود و از /api/platform/config
- * به رابط کاربری اعلام می‌گردد.
+ * فاز ۲ گام ۳ (0.1.3): یک شماره موبایل می‌تواند چند حساب با نقش‌های مختلف داشته
+ * باشد (یکتایی به‌ازای هر نقش). انتخاب حساب: اول نقش درخواستی فرم (role)، سپس
+ * نقش‌های مدیریتی (برای ورود ادمین)، سپس اولین حساب با رمز درست.
  */
 
 const OTP_TTL_SECONDS = 120;
 const SANDBOX_OTP_CODE = "12345";
 
+/** نقش‌های مدیریتی — برای اولویت انتخاب حساب هنگام ورود چندنقشی با یک موبایل */
+const ADMIN_ROLES = ["super_admin", "ops_manager", "finance_manager", "support_specialist", "auditor"];
+
 function normalizePhone(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const value = normalizeDigits(raw).replace(/[\s-]/g, "").trim();
   return isValidMobile(value) ? value : null;
+}
+
+/**
+ * ترتیب اولویت حساب‌های یک شماره موبایل:
+ * ۱) نقش درخواستی فرم (role ارسالی از UI)
+ * ۲) نقش‌های مدیریتی (ورود از پنل مدیریت)
+ * ۳) بقیه به ترتیب زمان ساخت
+ */
+function orderCandidatesByRole<T extends { role: string }>(users: T[], requestedRole: unknown): T[] {
+  const sorted = [...users];
+  sorted.sort((a, b) => {
+    const scoreOf = (user: T): number => {
+      if (typeof requestedRole === "string" && user.role === requestedRole) return 0;
+      if (ADMIN_ROLES.includes(user.role)) return 1;
+      return 2;
+    };
+    return scoreOf(a) - scoreOf(b);
+  });
+  return sorted;
 }
 
 function maskPhone(phone: string): string {
@@ -62,7 +84,8 @@ export async function POST(request: Request) {
     }
     await ensureSeed();
 
-    const user = await db.user.findUnique({
+    // چندنقشی: ممکن است یک شماره چند حساب با نقش‌های مختلف داشته باشد
+    const candidates = await db.user.findMany({
       where: { phone },
       include: {
         installerProfile: { select: { status: true } },
@@ -72,9 +95,17 @@ export async function POST(request: Request) {
 
     // پیام یکسان برای «حساب ندارد» و «رمز غلط» — افشای وجود حساب نداریم
     const genericError = "شماره موبایل یا رمز عبور اشتباه است.";
-    if (!user || !user.passwordHash) {
-      if (user && !user.passwordHash) {
-        // حساب قدیمی OTP — رمزی ندارد؛ راهنمایی صادقانه
+    if (candidates.length === 0) {
+      return NextResponse.json({ ok: false, error: genericError }, { status: 401 });
+    }
+
+    // انتخاب حساب به ترتیب اولویت نقش + تطبیق رمز (اولین تطبیق موفق برنده است)
+    const ordered = orderCandidatesByRole(candidates, body.role);
+    const user = ordered.find((candidate) => verifyPassword(password, candidate.passwordHash));
+    if (!user) {
+      const anyWithHash = ordered.some((candidate) => candidate.passwordHash);
+      if (!anyWithHash) {
+        // حساب‌های قدیمی OTP — رمزی ندارند؛ راهنمایی صادقانه
         return NextResponse.json(
           {
             ok: false,
@@ -84,15 +115,11 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
-      return NextResponse.json({ ok: false, error: genericError }, { status: 401 });
-    }
-
-    if (!verifyPassword(password, user.passwordHash)) {
       await writeAudit({
         action: "LOGIN_PASSWORD_FAILED",
         entityType: "User",
-        entityId: user.id,
-        details: { phone: maskPhone(user.phone) },
+        entityId: ordered[0].id,
+        details: { phone: maskPhone(ordered[0].phone) },
       });
       return NextResponse.json({ ok: false, error: genericError }, { status: 401 });
     }
@@ -169,7 +196,8 @@ export async function POST(request: Request) {
     }
     await db.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
 
-    const user = await db.user.findUnique({
+    // چندنقشی (0.1.3): انتخاب حساب با اولویت نقش درخواستی/مدیریتی
+    const candidates = await db.user.findMany({
       where: { phone },
       include: {
         installerProfile: { select: { status: true } },
@@ -177,9 +205,11 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!user) {
+    if (candidates.length === 0) {
       return NextResponse.json({ ok: true, isNew: true, phone });
     }
+
+    const user = orderCandidatesByRole(candidates, body.role)[0];
 
     await createSession(user.id, user.role);
     await writeAudit({

@@ -20,10 +20,16 @@ import type {
 export interface AuthRepository {
   /** درخواست کد تأیید (فقط در حالت otpEnabled فعال) */
   requestOtp(phone: string): Promise<OtpRequestResult>;
-  /** تأیید کد — کاربر موجود ورود می‌کند؛ کاربر جدید باید ثبت‌نام کند */
-  verifyOtp(phone: string, code: string): Promise<OtpVerifyResult>;
-  /** ورود با شماره موبایل + رمز عبور (حالت پیش‌فرض otpEnabled خاموش) */
-  loginWithPassword(phone: string, password: string): Promise<AuthUser>;
+  /**
+   * تأیید کد — کاربر موجود ورود می‌کند؛ کاربر جدید باید ثبت‌نام کند.
+   * role اختیاری: با حساب‌های چندنقشی روی یک موبایل، نقش درخواستی اولویت دارد.
+   */
+  verifyOtp(phone: string, code: string, role?: string): Promise<OtpVerifyResult>;
+  /**
+   * ورود با شماره موبایل + رمز عبور (حالت پیش‌فرض otpEnabled خاموش).
+   * role اختیاری: با حساب‌های چندنقشی روی یک موبایل، نقش درخواستی اولویت دارد.
+   */
+  loginWithPassword(phone: string, password: string, role?: string): Promise<AuthUser>;
   /** ثبت‌نام اولیه متناسب با نقش + ایجاد نشست (ورود بلافاصله به پنل شخصی) */
   register(data: RegistrationData): Promise<AuthUser>;
   /** پروفایل کامل کاربر لاگین‌شده (فقط خودش) */

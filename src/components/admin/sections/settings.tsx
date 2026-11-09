@@ -659,6 +659,10 @@ function RbacMatrix({ currentRole }: { currentRole: AdminRole }) {
           </tbody>
         </table>
       </div>
+      {/* نسخه 0.1.3: راهنمای موبایل — ماتریس عریض با کشیدن افقی کامل دیده می‌شود */}
+      <p className="px-4 pb-3 text-[10.5px] leading-5 text-slate-400 lg:hidden">
+        ماتریس در موبایل عریض است؛ برای دیدن همه نقش‌ها به چپ و راست بکشید.
+      </p>
       <p className="border-t border-slate-100 p-4 text-[11px] leading-6 text-slate-500">
         این ماتریس در APIها به‌صورت سمت سرور اعمال می‌شود (گارد requireAdmin)؛ منوی غیرمجاز هم در رابط کاربری
         پنهان است و هم درخواست مستقیم به آن با پاسخ 403 مسدود می‌شود.

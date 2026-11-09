@@ -41,17 +41,17 @@ export class HttpAuthRepository implements AuthRepository {
     });
   }
 
-  async verifyOtp(phone: string, code: string): Promise<OtpVerifyResult> {
+  async verifyOtp(phone: string, code: string, role?: string): Promise<OtpVerifyResult> {
     return requestJson<OtpVerifyResult>("/api/auth", {
       method: "POST",
-      body: JSON.stringify({ action: "verify", phone, code }),
+      body: JSON.stringify({ action: "verify", phone, code, role }),
     });
   }
 
-  async loginWithPassword(phone: string, password: string): Promise<AuthUser> {
+  async loginWithPassword(phone: string, password: string, role?: string): Promise<AuthUser> {
     const result = await requestJson<{ ok: true; user: AuthUser }>("/api/auth", {
       method: "POST",
-      body: JSON.stringify({ action: "login-password", phone, password }),
+      body: JSON.stringify({ action: "login-password", phone, password, role }),
     });
     return result.user;
   }

@@ -4,6 +4,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /*
+   * فونت سراسری وزیرمتن (نسخه 0.1.3 — جراحی فونت):
+   * بلوک inline ضروری است — متغیر --font-vazirmatn فقط روی body (کلاس next/font)
+   * تعریف می‌شود؛ اگر در بلوک ایستای @theme باشد، :root به متغیرِ تعریف‌نشده
+   * ارجاع می‌دهد و مقدار invalid می‌شود (فونت عملاً اعمال نمی‌شد).
+   * با inline، مقدار مستقیماً در utility «font-sans» روی همان عنصر جای‌گذاری
+   * می‌شود و روی body (که متغیر را دارد) درست resolve می‌گردد.
+   */
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", "Vazirmatn Fallback", "Segoe UI", Tahoma, ui-sans-serif, system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -41,9 +51,8 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* توکن‌های هویت بصری نیروکار — تنها منبع حقیقت رنگ‌ها و فونت */
+/* توکن‌های هویت بصری نیروکار — تنها منبع حقیقت رنگ‌ها */
 @theme {
-  --font-sans: var(--font-vazirmatn), "Vazirmatn", "Segoe UI", Tahoma, ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-brand-teal: #0f766e;
@@ -139,7 +148,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+    /* همان زنجیره inline --font-sans — روی body متغیر وزیرمتن موجود است */
+    font-family: var(--font-vazirmatn), "Vazirmatn", "Vazirmatn Fallback", "Segoe UI", Tahoma, ui-sans-serif, system-ui, sans-serif;
   }
   ::selection {
     background-color: rgb(15 118 110 / 0.2);

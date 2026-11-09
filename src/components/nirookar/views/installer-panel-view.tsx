@@ -88,32 +88,38 @@ export function InstallerPanelView() {
 
       <main className="flex-1 px-4 pb-12 pt-5 lg:py-8">
         <div className="mx-auto w-full max-w-2xl space-y-5">
-          {/* هویت کوتاه */}
-          <section className="flex items-center gap-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-teal-light text-brand-teal">
-              {profile?.photoUrl ? (
-                 
-                <img src={profile.photoUrl} alt={`عکس ${profile.fullName}`} className="size-14 rounded-2xl object-cover" />
-              ) : (
-                <HardHat className="size-7" aria-hidden="true" />
-              )}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-black text-brand-navy">
-                {profile?.fullName ?? user?.displayName ?? "—"}
-              </p>
-              <p dir="ltr" className="mt-0.5 flex items-center gap-1 text-right text-[12px] text-slate-500">
-                <Smartphone className="size-3.5 shrink-0" aria-hidden="true" />
-                {profile?.phone ?? "—"}
-              </p>
-              {profile ? (
-                <p className="mt-0.5 flex items-center gap-1 text-[12px] text-slate-500">
-                  <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                  {profile.city}
-                </p>
-              ) : null}
+          {/* هویت کوتاه — نسخه 0.1.3: چیپ وضعیت در موبایل زیر اطلاعات می‌رود (بدون فشردگی) */}
+          <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-teal-light text-brand-teal">
+                  {profile?.photoUrl ? (
+                    
+                    <img src={profile.photoUrl} alt={`عکس ${profile.fullName}`} className="size-14 rounded-2xl object-cover" />
+                  ) : (
+                    <HardHat className="size-7" aria-hidden="true" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-black text-brand-navy">
+                    {profile?.fullName ?? user?.displayName ?? "—"}
+                  </p>
+                  <p dir="ltr" className="mt-0.5 flex items-center gap-1 text-right text-[12px] text-slate-500">
+                    <Smartphone className="size-3.5 shrink-0" aria-hidden="true" />
+                    {profile?.phone ?? "—"}
+                  </p>
+                  {profile ? (
+                    <p className="mt-0.5 flex items-center gap-1 text-[12px] text-slate-500">
+                      <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                      {profile.city}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="shrink-0 self-start sm:self-center">
+                <ProfileStatusChip status={status} />
+              </div>
             </div>
-            <ProfileStatusChip status={status} />
           </section>
 
           {loading ? (
