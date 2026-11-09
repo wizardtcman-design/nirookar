@@ -11,6 +11,8 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
 const MOBILE_REGEX = /^09\d{9}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** شبا ایران: IR + ۲۴ رقم */
+const SHEBA_REGEX = /^IR\d{24}$/;
 
 export const VALIDATION_MESSAGES = {
   required: "این فیلد الزامی است",
@@ -18,6 +20,9 @@ export const VALIDATION_MESSAGES = {
   invalidEmail: "ایمیل معتبر نیست",
   invalidIdentifier: "ایمیل یا شماره موبایل معتبر وارد کنید",
   shortPassword: "رمز عبور باید حداقل ۶ کاراکتر باشد",
+  invalidNationalId: "کد ملی معتبر نیست (باید ۱۰ رقم باشد و الگوریتم صحت‌سنجی را پاس کند)",
+  duplicateNationalId: "این کد ملی قبلاً در سیستم ثبت شده است",
+  invalidSheba: "شماره شبا معتبر نیست (باید با IR شروع شود و ۲۶ کاراکتر باشد)",
 } as const;
 
 /** تبدیل ارقام فارسی/عربی به لاتین برای اعتبارسنجی یکدست */
@@ -62,5 +67,79 @@ export function validatePassword(raw: string): FieldValidation {
   const value = raw ?? "";
   if (!value.trim()) return { ok: false, message: VALIDATION_MESSAGES.required };
   if (value.length < 6) return { ok: false, message: VALIDATION_MESSAGES.shortPassword };
+  return { ok: true };
+}
+
+/**
+ * الگوریتم ریاضی صحت‌سنجی کد ملی ایران (۱۰ رقم).
+ *
+ * روش استاندارد: مجموع حاصل‌ضرب ۹ رقم اول در وزن‌های ۱۰ تا ۲ محاسبه، باقیمانده
+ * تقسیم بر ۱۱ سنجیده می‌شود؛ اگر باقیمانده کمتر از ۲ باشد رقم کنترل باید با آن
+ * برابر باشد، در غیر این صورت رقم کنترل باید ۱۱ منهای باقیمانده باشد.
+ * ارقام فارسی/عربی به‌صورت خودکار نرمال‌سازی می‌شوند.
+ */
+export function isValidIranianNationalId(raw: string): boolean {
+  const value = normalizeDigits(raw ?? "").replace(/\D/g, "");
+  if (!/^\d{10}$/.test(value)) return false;
+
+  // کدهای ملی با ارقام تکراری یکسان نامعتبر شناخته می‌شوند
+  if (/^(\d)\1{9}$/.test(value)) return false;
+
+  const digits = value.split("").map(Number);
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) {
+    sum += digits[i] * (10 - i);
+  }
+  const remainder = sum % 11;
+  const control = digits[9];
+  return remainder < 2 ? control === remainder : control === 11 - remainder;
+}
+
+/** اعتبارسنجی فیلد کد ملی با پیام صادقانه — استفاده مشترک در فرم‌ها و سرور */
+export function validateNationalId(raw: string): FieldValidation {
+  const value = normalizeDigits(raw ?? "").replace(/\D/g, "");
+  if (!value) return { ok: false, message: VALIDATION_MESSAGES.required };
+  if (!isValidIranianNationalId(value)) {
+    return { ok: false, message: VALIDATION_MESSAGES.invalidNationalId };
+  }
+  return { ok: true };
+}
+
+/**
+ * صحت‌سنجی ساختاری و ریاضی شماره شبا ایران (IBAN - الگوریتم mod-97).
+ * شبا معتبر: ۲۶ کاراکتر، شروع با «IR»، باقیمانده تقسیم عدد جابه‌جاشده بر ۹۷ = ۱.
+ */
+export function isValidIranianSheba(raw: string): boolean {
+  const value = normalizeDigits(raw ?? "").replace(/\s/g, "").toUpperCase();
+  if (!SHEBA_REGEX.test(value)) return false;
+
+  // جابه‌جایی ۴ کاراکتر اول به انتها و تبدیل حروف به عدد (I=18، R=27)
+  const rearranged = value.slice(4) + "1827" + value.slice(2, 4);
+  let remainder = 0;
+  for (const char of rearranged) {
+    const digit = Number(char);
+    if (Number.isNaN(digit)) return false;
+    remainder = (remainder * 10 + digit) % 97;
+  }
+  return remainder === 1;
+}
+
+/** اعتبارسنجی فیلد شبا با پیام صادقانه */
+export function validateSheba(raw: string): FieldValidation {
+  const value = (raw ?? "").trim();
+  if (!value) return { ok: false, message: VALIDATION_MESSAGES.required };
+  if (!isValidIranianSheba(value)) {
+    return { ok: false, message: VALIDATION_MESSAGES.invalidSheba };
+  }
+  return { ok: true };
+}
+
+/** اعتبارسنجی متن الزامی عمومی (نام، آدرس، سابقه کار و ...) */
+export function validateRequiredText(raw: string, minLength = 2): FieldValidation {
+  const value = (raw ?? "").trim();
+  if (!value) return { ok: false, message: VALIDATION_MESSAGES.required };
+  if (value.length < minLength) {
+    return { ok: false, message: `این فیلد باید حداقل ${minLength} کاراکتر باشد` };
+  }
   return { ok: true };
 }

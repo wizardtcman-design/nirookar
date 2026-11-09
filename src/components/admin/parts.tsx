@@ -1,15 +1,16 @@
 "use client";
 
-import { Info, type LucideIcon } from "lucide-react";
+import { Database, Info, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { DemoStatusTone } from "@/lib/admin-demo-data";
 
 /**
- * اجزای مشترک پنل مدیریت فاز ۱.
+ * اجزای مشترک پنل مدیریت.
  *
- * اصل شفافیت: هر داده نمایشی با «DemoBadge» مشخص می‌شود و هر بخش
- * غیرعملیاتی با «SectionBanner» وضعیت واقعی خود را اعلام می‌کند.
+ * اصل شفافیت: هر داده نمایشی با «DemoBadge» مشخص می‌شود و هر بخش متصل به
+ * دیتابیس با «LiveBadge»؛ هر بخش غیرعملیاتی با «SectionBanner» وضعیت واقعی
+ * خود را اعلام می‌کند.
  */
 
 /** نشان «داده نمایشی» — روی هر عدد/جدول نمایشی قرار می‌گیرد */
@@ -21,6 +22,21 @@ export function DemoBadge({ className, label = "داده نمایشی" }: { clas
         className,
       )}
     >
+      {label}
+    </span>
+  );
+}
+
+/** نشان «متصل به دیتابیس» — برای بخش‌هایی که داده واقعی نشان می‌دهند */
+export function LiveBadge({ className, label = "متصل به دیتابیس" }: { className?: string; label?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800",
+        className,
+      )}
+    >
+      <Database className="size-3" aria-hidden="true" />
       {label}
     </span>
   );

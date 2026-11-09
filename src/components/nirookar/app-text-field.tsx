@@ -18,7 +18,11 @@ interface AppTextFieldProps {
   onToggleReveal?: () => void;
   revealed?: boolean;
   autoComplete?: string;
-  inputMode?: "text" | "tel" | "email";
+  inputMode?: "text" | "tel" | "email" | "numeric" | "decimal";
+  /** جهت متن — پیش‌فرض LTR برای فیلدهای عددی/لاتین */
+  dir?: "ltr" | "rtl";
+  /** راهنمای کوتاه زیر فیلد */
+  hint?: string;
   /** onDark برای کارت تیره نصاب */
   tone?: "light" | "onDark";
   /** غیرفعال — برای فیلدهای نمایشی که در فازهای بعد فعال می‌شوند */
@@ -44,6 +48,8 @@ export function AppTextField({
   revealed,
   autoComplete,
   inputMode,
+  dir = "ltr",
+  hint,
   tone = "light",
   disabled,
 }: AppTextFieldProps) {
@@ -73,7 +79,7 @@ export function AppTextField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           inputMode={inputMode}
-          dir="ltr"
+          dir={dir}
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
@@ -102,6 +108,9 @@ export function AppTextField({
           </button>
         ) : null}
       </div>
+      {hint && !error ? (
+        <p className="mt-1.5 text-[11px] text-slate-400">{hint}</p>
+      ) : null}
       {error ? (
         <p id={`${id}-error`} role="alert" className={cn("mt-1.5 text-xs font-medium", onDark ? "text-red-300" : "text-red-600")}>
           {error}

@@ -3,7 +3,7 @@
 import { CircleCheck, CircleMinus, CircleX, Database } from "lucide-react";
 
 import type { BuildStatus, MatrixPhase } from "@shared/feature-matrix";
-import { FEATURE_MATRIX, PHASE1_DONE, PHASE1_EXCLUDED } from "@shared/feature-matrix";
+import { FEATURE_MATRIX, PHASE1_DONE, PHASE1_EXCLUDED, PHASE2_STEP1_DONE } from "@shared/feature-matrix";
 
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
@@ -37,9 +37,9 @@ export function StatusView() {
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
             <h2 className="text-base font-extrabold text-brand-navy">وضعیت فعلی محصول</h2>
             <p className="mt-2 text-[13px] leading-7 text-slate-600">
-              نیروکار در <span className="font-bold">فاز ۱</span> است: صفحه آغازین و سه مسیر ورود (مشتری، نصاب،
-              فروشگاه)، ساختار اولیه پنل مدیریت وب، اپ موبایل Expo و مستندات معماری. هیچ بخشی به سرور متصل نیست
-              و هیچ قابلیتی شبیه‌سازی «فعال» نمی‌شود.
+              نیروکار در <span className="font-bold">فاز ۲ (گام ۱)</span> است: ورود و ثبت‌نام واقعی با OTP آزمایشی،
+              پنل مدیریت متصل به دیتابیس با کنترل دسترسی سمت سرور، و تنظیمات پویای کامل (قانون صفر درصد هاردکد).
+              اپ موبایل Expo با صفحات فاز ۱ کامل است و گام بعدی آن اتصال به همان API است.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
               <span className="rounded-full bg-brand-slate-light px-3 py-1 font-bold text-brand-navy">
@@ -55,7 +55,19 @@ export function StatusView() {
           </section>
 
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
-            <h2 className="text-base font-extrabold text-brand-navy">در فاز ۱ ساخته شده است</h2>
+            <h2 className="text-base font-extrabold text-brand-navy">در فاز ۲ گام ۱ ساخته شده است</h2>
+            <ul className="mt-3 space-y-2">
+              {PHASE2_STEP1_DONE.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-[13px] leading-6 text-slate-600">
+                  <CircleCheck className="mt-1 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
+            <h2 className="text-base font-extrabold text-brand-navy">در فاز ۱ ساخته شده بود</h2>
             <ul className="mt-3 space-y-2">
               {PHASE1_DONE.map((item) => (
                 <li key={item} className="flex items-start gap-2 text-[13px] leading-6 text-slate-600">
@@ -143,7 +155,7 @@ export function StatusView() {
 
           <HonestNotice
             title="محدودیت‌های شناخته‌شده"
-            body="ناوبری فعلی روی مسیر «/» با hash انجام می‌شود (محدودیت محیط پیش‌نمایش) و در فاز بعد به مسیرهای واقعی Next.js با SEO کامل منتقل می‌شود. اپ موبایل کد کامل است اما ساخت APK روی GitHub Actions انجام می‌شود."
+            body="OTP در این نسخه آزمایشی است (کد ثابت 12345) و پیامک واقعی ارسال نمی‌شود. ناوبری فعلی روی مسیر «/» با hash انجام می‌شود و در فاز بعد به مسیرهای واقعی Next.js منتقل می‌شود. اپ موبایل گام بعدی خودش (اتصال به API ورود و ثبت‌نام) را پس از استقرار endpoint انجام می‌دهد."
           />
         </div>
       </main>

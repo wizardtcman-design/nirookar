@@ -12,3 +12,5 @@ export * from "./validation";
 export * from "./admin-rbac";
 export * from "./feature-matrix";
 export * from "./version-core";
+export * from "./platform-settings";
+export * from "./specialties";

@@ -3,11 +3,11 @@
 import { AdminApp } from "@/components/admin/admin-app";
 import { BottomNav } from "@/components/nirookar/bottom-nav";
 import { AboutView } from "@/components/nirookar/views/about-view";
-import { CustomerLoginView } from "@/components/nirookar/views/customer-login-view";
+import { AuthFlowView } from "@/components/nirookar/views/auth-flow-view";
 import { GuideView } from "@/components/nirookar/views/guide-view";
 import { HomeView } from "@/components/nirookar/views/home-view";
-import { ProfessionalLoginView } from "@/components/nirookar/views/professional-login-view";
 import { StatusView } from "@/components/nirookar/views/status-view";
+import { AuthProvider } from "@/hooks/use-auth";
 import { isTabView, useAppView } from "@/lib/navigation";
 
 /**
@@ -16,25 +16,32 @@ import { isTabView, useAppView } from "@/lib/navigation";
  * به روتر واقعی Next.js منتقل شود.
  *
  * پنل مدیریت (#/admin) چیدمان مستقل و تیره خودش را دارد و برخلاف وب‌سایت
- * عمومی، نوار ناوبری پایین ندارد.
+ * عمومی، نوار ناوبری پایین ندارد. دسترسی پنل فقط بر اساس نقش لاگین‌شده است
+ * و لینک عمومی آن در صفحه اصلی نمایش داده نمی‌شود (دستور مالک).
  */
 export default function Page() {
   const view = useAppView();
 
   if (view === "admin") {
-    return <AdminApp />;
+    return (
+      <AuthProvider>
+        <AdminApp />
+      </AuthProvider>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg">
-      {view === "home" ? <HomeView /> : null}
-      {view === "guide" ? <GuideView /> : null}
-      {view === "about" ? <AboutView /> : null}
-      {view === "status" ? <StatusView /> : null}
-      {view === "login-customer" ? <CustomerLoginView /> : null}
-      {view === "login-installer" ? <ProfessionalLoginView focus="installer" /> : null}
-      {view === "login-shop" ? <ProfessionalLoginView focus="shop" /> : null}
-      <BottomNav current={view} />
-    </div>
+    <AuthProvider>
+      <div className="min-h-screen bg-brand-bg">
+        {view === "home" ? <HomeView /> : null}
+        {view === "guide" ? <GuideView /> : null}
+        {view === "about" ? <AboutView /> : null}
+        {view === "status" ? <StatusView /> : null}
+        {view === "login-customer" ? <AuthFlowView role="customer" /> : null}
+        {view === "login-installer" ? <AuthFlowView role="installer" /> : null}
+        {view === "login-shop" ? <AuthFlowView role="shop" /> : null}
+        <BottomNav current={view} />
+      </div>
+    </AuthProvider>
   );
 }

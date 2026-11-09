@@ -18,7 +18,7 @@ import type { AdminPermission, AdminRole } from "@shared/admin-rbac";
 import { ADMIN_ROLE_FA, roleHasPermission } from "@shared/admin-rbac";
 
 import { LogoMark } from "@/components/nirookar/logo";
-import { DemoBadge } from "@/components/admin/parts";
+import { LiveBadge } from "@/components/admin/parts";
 import { OverviewSection } from "@/components/admin/sections/overview";
 import { UsersSection } from "@/components/admin/sections/users";
 import { ShopsSection } from "@/components/admin/sections/shops";
@@ -69,17 +69,18 @@ const SECTIONS: Record<string, (props: SectionProps) => React.ReactNode> = {
 
 interface AdminLayoutProps {
   role: AdminRole;
+  /** نام واقعی مدیر لاگین‌شده */
+  adminName: string;
   section: string;
   onLogout: () => void;
 }
 
 /**
  * چیدمان پنل مدیریت — سایدبار تیره مستقل + ناوبری موبایل.
- * منوها بر اساس مجوز نقش فیلتر می‌شوند (نمایش معماری RBAC فاز ۱) و ورود
- * مستقیم به بخش غیرمجاز نیز با پیام صادقانه مسدود می‌شود؛ کنترل واقعی
- * در فاز Backend سمت سرور اجرا خواهد شد.
+ * منوها بر اساس مجوز نقش فیلتر می‌شوند و ورود مستقیم به بخش غیرمجاز با پیام
+ * صادقانه مسدود می‌شود؛ کنترل واقعی همین مجوزها سمت سرور (API) اجرا می‌شود.
  */
-export function AdminLayout({ role, section, onLogout }: AdminLayoutProps) {
+export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutProps) {
   const visibleNav = ADMIN_NAV.filter((item) => roleHasPermission(role, item.permission));
   const roleInfo = ADMIN_ROLE_FA[role];
 
@@ -121,9 +122,9 @@ export function AdminLayout({ role, section, onLogout }: AdminLayoutProps) {
 
         <div className="space-y-3 border-t border-white/10 p-4">
           <div className="rounded-xl bg-white/5 p-3">
-            <p className="text-[11px] font-bold text-brand-teal-light">{roleInfo.title}</p>
+            <p className="text-[12px] font-black text-white">{adminName}</p>
+            <p className="mt-0.5 text-[10px] text-brand-teal-light">{roleInfo.title}</p>
             <p className="mt-1 text-[10px] leading-4 text-slate-400">{roleInfo.description}</p>
-            <DemoBadge className="mt-2 border-amber-400/40 bg-amber-400/15 text-amber-200" label="نشست نمایشی" />
           </div>
           <button
             type="button"
@@ -131,7 +132,7 @@ export function AdminLayout({ role, section, onLogout }: AdminLayoutProps) {
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 py-2 text-xs font-bold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <LogOut className="size-4" aria-hidden="true" />
-            خروج نمایشی
+            خروج از حساب
           </button>
           <a
             href="#/"
@@ -150,17 +151,17 @@ export function AdminLayout({ role, section, onLogout }: AdminLayoutProps) {
               <LogoMark className="size-8 rounded-lg text-xs" />
             </span>
             <h1 className="truncate text-base font-extrabold text-brand-navy">{currentTitle}</h1>
-            <DemoBadge className="hidden sm:inline-flex" />
+            <LiveBadge className="hidden sm:inline-flex" />
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-brand-slate-light px-3 py-1 text-[11px] font-bold text-brand-navy">
-              {roleInfo.title}
+              {adminName} — {roleInfo.title}
             </span>
             <button
               type="button"
               onClick={onLogout}
               className="flex size-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-brand-navy lg:hidden"
-              aria-label="خروج نمایشی از پنل مدیریت"
+              aria-label="خروج از پنل مدیریت"
             >
               <LogOut className="size-4.5" aria-hidden="true" />
             </button>
@@ -197,8 +198,8 @@ export function AdminLayout({ role, section, onLogout }: AdminLayoutProps) {
             <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
               <p className="text-sm font-extrabold text-rose-800">دسترسی به این بخش برای نقش شما مجاز نیست.</p>
               <p className="mt-2 text-xs leading-6 text-rose-700">
-                این پیام نمایش معماری سطوح دسترسی (RBAC) است: منوی «{currentTitle}» برای نقش «{roleInfo.title}» فعال
-                نیست. در فاز Backend، همین کنترل به‌صورت واقعی و سمت سرور اجرا می‌شود.
+                منوی «{currentTitle}» برای نقش «{roleInfo.title}» فعال نیست. این کنترل هم در رابط کاربری و هم
+                سمت سرور (API) با ماتریس مجوزهای واقعی اجرا می‌شود.
               </p>
             </div>
           )}

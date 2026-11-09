@@ -1,8 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// اسکیمای پایگاه داده نیروکار — فاز ۲ گام ۱ (نسخه 0.1.1 — بیلد 002)
+//
+// SQLite برای اجرای محلی/پیش‌نمایش زنده؛ به‌دلیل لایه Repository، تعویض به
+// PostgreSQL در آینده فقط با تغییر datasource همین فایل انجام می‌شود و هیچ
+// تغییر UI لازم ندارد (اصل وابستگی معکوس).
+//
+// ⚠️ داده‌های کاربران ثبت‌نام‌شده در این فاز، داده واقعی ورودی مالک برای تست
+// پیش‌نمایش زنده است؛ انتشار عمومی و انتقال به سرور عملیاتی نیازمند تأیید است.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +16,141 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/**
+ * کاربر پلتفرم — نقش‌ها: مشتری/نصاب/فروشگاه + ۵ نقش مدیریتی.
+ * نقش‌های مدیریتی فقط با seed سیستم ایجاد می‌شوند و از طریق ثبت‌نام عمومی ساخته نمی‌شوند.
+ */
 model User {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  role        String
+  displayName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customerProfile  CustomerProfile?
+  installerProfile InstallerProfile?
+  shopProfile      ShopProfile?
+  sessions         Session[]
+}
+
+/** پروفایل مشتری — حداقل داده؛ عکس اختیاری طبق قانون */
+model CustomerProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  city         String
+  neighborhood String?
+  photoUrl     String?
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * پرونده کامل نصاب.
+ * آدرس محل سکونت «محرمانه» است و فقط در پنل ادمین (با کنترل دسترسی سمت سرور) نمایش داده می‌شود.
+ * وضعیت اولیه: PENDING_VERIFICATION — پس از تأیید حضوری قرارداد و سفته: ACTIVE
+ */
+model InstallerProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  fullName          String
+  nationalId        String    @unique
+  city              String
+  residenceAddress  String
+  workHistory       String
+  specialties       String
+  sheba             String
+  photoUrl          String
+  nationalCardUrl   String
+  status            String    @default("PENDING_VERIFICATION")
+  contractSignedAt  DateTime?
+  verifiedByUserId  String?
+  verifiedByName    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+/**
+ * پرونده فروشگاه/همکار — وضعیت اولیه: PENDING_VERIFICATION
+ * کد ملی مالک Unique است تا هر فروشگاه فقط یک پروفایل داشته باشد.
+ */
+model ShopProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  shopName         String
+  ownerName        String
+  nationalId       String    @unique
+  address          String
+  contactPhone     String
+  sheba            String
+  logoUrl          String
+  status           String    @default("PENDING_VERIFICATION")
+  contractSignedAt DateTime?
+  verifiedByUserId String?
+  verifiedByName   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+/** نشست ورود — توکن تصادفی در کوکی httpOnly؛ بدون ذخیره هیچ رمزی */
+model Session {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  token     String   @unique
+  userId    String
+  role      String
   createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+/**
+ * کد تأیید OTP — در این فاز فقط Sandbox با کد ثابت آزمایشی 12345.
+ * ساختار عمداً آماده اتصال سرویس پیامک واقعی در فازهای بعد است.
+ */
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String   @default("LOGIN")
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([phone, createdAt])
+}
+
+/**
+ * تنظیمات پویا (قانون «صفر درصد هاردکد») — یک ردیف Singleton.
+ * اعداد تجاری به‌صورت JSON ذخیره می‌شوند و ساختار آن‌ها در
+ * packages/shared/src/platform-settings.ts تعریف شده است.
+ */
+model PlatformSettings {
+  id        String   @id @default("singleton")
+  dataJson  String
   updatedAt DateTime @updatedAt
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/**
+ * Audit Log — سوابق حساس، Append-Only.
+ * هیچ مسیر ویرایش یا حذف برای این جدول وجود ندارد (طراحی ضد دستکاری).
+ */
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorName  String?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }

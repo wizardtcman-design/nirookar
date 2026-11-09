@@ -13,14 +13,14 @@
 /** نسخه رسمی رزروشده برای اولین انتشار عمومی — تا تأیید نهایی استفاده نمی‌شود */
 export const OFFICIAL_FIRST_VERSION = "1.0.0";
 
-/** نسخه پیش‌انتشار جاری (فاز ۱) */
-export const APP_VERSION = "0.1.0";
+/** نسخه پیش‌انتشار جاری (فاز ۲ — گام اول: احراز هویت واقعی + تنظیمات پویا) */
+export const APP_VERSION = "0.1.1";
 
 /** شماره Build جاری — مستقل از نسخه محصول؛ افزایشی در هر ساخت (001، 002 و ...) */
-export const APP_BUILD = "001";
+export const APP_BUILD = "002";
 
 /** برچسب فاز جاری توسعه محصول */
-export const APP_PHASE_LABEL = "فاز ۱ — ورود نقش‌ها + ساختار پنل مدیریت";
+export const APP_PHASE_LABEL = "فاز ۲ (گام ۱) — OTP و ثبت‌نام واقعی + تنظیمات پویا";
 
 /** پلتفرم‌های هدف محصول */
 export const APP_PLATFORMS = "اندروید، iOS و وب";
