@@ -42,8 +42,24 @@ export function LiveBadge({ className, label = "متصل به دیتابیس" }:
   );
 }
 
-/** بنر بالای هر بخش پنل — وضعیت صادقانه بخش در فاز ۱ */
-export function SectionBanner({ extra }: { extra?: string }) {
+/**
+ * بنر بالای هر بخش پنل — وضعیت صادقانه بخش.
+ * - حالت پیش‌فرض (کهربایی): بخش نمایشی است و به Backend آینده وابسته است.
+ * - حالت live (سبز): بخش به دیتابیس واقعی متصل است و عملیات سمت سرور اجرا می‌شود.
+ */
+export function SectionBanner({ extra, live = false }: { extra?: string; live?: boolean }) {
+  if (live) {
+    return (
+      <div role="status" className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+        <Info className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+        <p className="text-xs leading-6 text-emerald-900">
+          این بخش <span className="font-extrabold">به دیتابیس واقعی متصل</span> است؛ عملیات آن سمت سرور با کنترل
+          دسترسی نقش‌محور (RBAC) اجرا می‌شود و همهٔ رویدادها در Audit Log ثبت می‌شوند.
+          {extra ? ` ${extra}` : ""}
+        </p>
+      </div>
+    );
+  }
   return (
     <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
       <Info className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />

@@ -92,7 +92,7 @@ export function SettingsSection({ role }: { role: AdminRole }) {
 
   return (
     <div className="space-y-5">
-      <SectionBanner extra="تمام اعداد تجاری پلتفرم فقط از همین بخش مدیریت می‌شوند (قانون صفر درصد هاردکد) و هر تغییر در Audit Log ثبت می‌شود." />
+      <SectionBanner live extra="تمام اعداد تجاری پلتفرم فقط از همین بخش مدیریت می‌شوند (قانون صفر درصد هاردکد) و هر تغییر در Audit Log ثبت می‌شود." />
 
       {/* ── درآمد از نصاب ── */}
       <SettingsCard title="درآمد پلتفرم از نصاب‌ها" live>

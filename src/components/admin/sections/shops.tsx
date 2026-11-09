@@ -65,7 +65,7 @@ export function ShopsSection() {
 
   return (
     <div className="space-y-5">
-      <SectionBanner extra="داده‌ها زنده از دیتابیس خوانده می‌شود؛ تأیید فروشگاه فقط با مجوز «مدیریت فروشگاه‌ها» سمت سرور انجام می‌شود." />
+      <SectionBanner live extra="تأیید فروشگاه فقط با مجوز «مدیریت فروشگاه‌ها» سمت سرور انجام می‌شود." />
 
       {shops.length === 0 ? (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-sm">
