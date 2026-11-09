@@ -30,6 +30,7 @@ import { ImageUploadField } from "@/components/nirookar/image-upload-field";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { PrimaryButton } from "@/components/nirookar/primary-button";
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { useAuth } from "@/hooks/use-auth";
 import { navigateToView } from "@/lib/navigation";
 import { getRole, ROLE_THEME_STYLES } from "@/lib/roles";
@@ -287,6 +288,9 @@ export function AuthFlowView({ role }: { role: UserRole }) {
             <ShieldCheck className="size-4 text-brand-teal" aria-hidden="true" />
             امن و مطمئن | نشست شما با کوکی امن سمت سرور نگهداری می‌شود
           </p>
+
+          {/* نوار ناوبری درون‌کارتی — فوتر صفحه ورود (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav className="mt-6" />
         </section>
       </main>
     </div>

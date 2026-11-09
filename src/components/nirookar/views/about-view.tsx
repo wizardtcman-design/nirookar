@@ -3,6 +3,7 @@
 import { Info } from "lucide-react";
 
 import { LogoMark } from "@/components/nirookar/logo";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
 import { APP_BUILD, APP_PHASE_LABEL, APP_PLATFORMS, APP_VERSION, OFFICIAL_FIRST_VERSION } from "@/lib/version";
 
@@ -50,6 +51,9 @@ export function AboutView() {
             <Info className="size-3.5" aria-hidden="true" />
             این صفحه بخشی از نسخه اولیه (فاز ۱) است.
           </p>
+
+          {/* نوار ناوبری درون‌کارتی — فوتر صفحه (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav current="about" className="mt-4" />
         </div>
       </main>
     </div>

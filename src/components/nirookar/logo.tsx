@@ -28,3 +28,13 @@ export function Logo() {
     </span>
   );
 }
+
+/** لوگوی فشرده هدر — فقط نشان و نام «نیروکار»؛ طبق دستور مالک با shrink-0 در هدر باریک */
+export function CompactLogo() {
+  return (
+    <span className="flex shrink-0 items-center gap-2">
+      <LogoMark className="size-9 rounded-xl text-base" />
+      <span className="text-lg font-black text-brand-navy">نیروکار</span>
+    </span>
+  );
+}

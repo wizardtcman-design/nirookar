@@ -4,6 +4,7 @@ import { House, Loader2, MapPin, PackageOpen, Smartphone, UserRound } from "luci
 import { useCallback, useEffect, useState } from "react";
 
 import { PanelHeader } from "@/components/nirookar/panel-header";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { PrimaryButton } from "@/components/nirookar/primary-button";
 import { navigateToView } from "@/lib/navigation";
@@ -113,6 +114,9 @@ export function CustomerPanelView() {
               بازگشت به صفحه اصلی
             </span>
           </PrimaryButton>
+
+          {/* نوار ناوبری درون‌کارتی — فوتر پنل (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav className="mt-4" />
         </div>
       </main>
     </div>

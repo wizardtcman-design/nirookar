@@ -2,6 +2,7 @@
 
 import { BadgeCheck, Sparkles } from "lucide-react";
 
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
 import { ROLE_REGISTRY } from "@/lib/roles";
 
@@ -63,6 +64,9 @@ export function GuideView() {
               ))}
             </div>
           </section>
+
+          {/* نوار ناوبری درون‌کارتی — فوتر صفحه (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav current="guide" className="mt-8" />
         </div>
       </main>
     </div>

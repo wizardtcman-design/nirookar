@@ -20,6 +20,7 @@ import type { AdminPermission, AdminRole } from "@shared/admin-rbac";
 import { ADMIN_ROLE_FA, roleHasPermission } from "@shared/admin-rbac";
 
 import { LogoMark } from "@/components/nirookar/logo";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { LiveBadge } from "@/components/admin/parts";
 import { OverviewSection } from "@/components/admin/sections/overview";
 import { UsersSection } from "@/components/admin/sections/users";
@@ -232,6 +233,9 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
               </p>
             </div>
           )}
+
+          {/* نوار ناوبری درون‌کارتی — فوتر پنل مدیریت (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav className="mt-6" />
         </main>
       </div>
     </div>

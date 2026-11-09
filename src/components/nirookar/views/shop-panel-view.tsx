@@ -28,6 +28,7 @@ import {
 } from "@shared/validation";
 
 import { PanelHeader, ProfileStatusChip } from "@/components/nirookar/panel-header";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { AppTextField } from "@/components/nirookar/app-text-field";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { ImageUploadField } from "@/components/nirookar/image-upload-field";
@@ -179,6 +180,9 @@ export function ShopPanelView() {
               بازگشت به صفحه اصلی
             </span>
           </PrimaryButton>
+
+          {/* نوار ناوبری درون‌کارتی — فوتر پنل (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav className="mt-4" />
         </div>
       </main>
     </div>

@@ -25,8 +25,10 @@ const TABS: readonly TabItem[] = [
  * - در باریک‌ترین عرض (حتی ۳۲۰px) هر چهار دکمه دقیقاً داخل کادر می‌مانند و
  *   هرگز از عرض صفحه بیرون نمی‌زنند (بدون max-width و بدون pill شناور).
  * - هر تب min-w-0 + truncate دارد تا متن هرگز سرریز افقی نسازد.
- * - ارتفاع لمسی هر تب ≥ ۴۸px (استاندارد دسترسی‌پذیری موبایل).
- * - در دسکتاپ ناوبری بالای صفحه جایگزین می‌شود؛ نوار پایین فقط موبایل/تبلت است.
+ * - ارتفاع لمسی هر تب ≥ ۵۲px (استاندارد دسترسی‌پذیری موبایل).
+ * - نسخه 0.1.3: چون لینک‌های ناوبری از هدر بالا حذف شدند (دستور مالک)، این
+ *   نوار اکنون در همه عرض‌ها (شامل دسکتاپ) نمایش داده می‌شود؛ روی نمایشگر
+ *   بزرگ ستون‌ها به مرکز محدود می‌شوند تا ظاهر تمیز بماند.
  */
 export function BottomNav({ current }: { current: ViewId }) {
   if (!isTabView(current)) return null;
@@ -34,10 +36,10 @@ export function BottomNav({ current }: { current: ViewId }) {
   return (
     <nav
       aria-label="ناوبری اصلی"
-      className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-full border-t border-slate-200 bg-white/95 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-full border-t border-slate-200 bg-white/95 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="mx-auto grid w-full max-w-full grid-cols-4">
+      <div className="mx-auto grid w-full max-w-full grid-cols-4 sm:max-w-2xl sm:border-x sm:border-slate-200">
         {TABS.map(({ view, label, icon: Icon }) => {
           const active = current === view;
           return (

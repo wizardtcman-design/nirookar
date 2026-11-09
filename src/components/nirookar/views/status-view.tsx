@@ -6,6 +6,7 @@ import type { BuildStatus, MatrixPhase } from "@shared/feature-matrix";
 import { FEATURE_MATRIX, PHASE1_DONE, PHASE1_EXCLUDED, PHASE2_STEP1_DONE, PHASE2_STEP2_DONE, PHASE2_STEP3_DONE } from "@shared/feature-matrix";
 
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
+import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { APP_BUILD, APP_VERSION } from "@/lib/version";
 
@@ -185,6 +186,9 @@ export function StatusView() {
             title="محدودیت‌های شناخته‌شده"
             body="ورود با رمز عبور پیش‌فرض است و کد تأیید فقط با فعال‌سازی otpEnabled از پنل مدیریت (الان Sandbox با کد 12345) استفاده می‌شود. همه حساب‌های آزمایشی و مدیران Sandbox با رمز پیش‌فرض 123456 قابل ورود هستند. یکتایی کد ملی به‌ازای هر نقش است: یک نفر در هر نقش فقط یک حساب دارد ولی می‌تواند در نقش‌های دیگر هم حساب جداگانه داشته باشد. ناوبری فعلی روی مسیر «/» با hash انجام می‌شود و اپ موبایل گام بعدی خودش (اتصال به API ورود و ثبت‌نام) را پس از استقرار endpoint انجام می‌دهد."
           />
+
+          {/* نوار ناوبری درون‌کارتی — فوتر صفحه (دستور مالک: همیشه داخل کادر برنامه) */}
+          <InlineTabNav current="status" className="mt-8" />
         </div>
       </main>
     </div>
