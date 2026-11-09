@@ -4,8 +4,11 @@ import { AdminApp } from "@/components/admin/admin-app";
 import { BottomNav } from "@/components/nirookar/bottom-nav";
 import { AboutView } from "@/components/nirookar/views/about-view";
 import { AuthFlowView } from "@/components/nirookar/views/auth-flow-view";
+import { CustomerPanelView } from "@/components/nirookar/views/customer-panel-view";
 import { GuideView } from "@/components/nirookar/views/guide-view";
 import { HomeView } from "@/components/nirookar/views/home-view";
+import { InstallerPanelView } from "@/components/nirookar/views/installer-panel-view";
+import { ShopPanelView } from "@/components/nirookar/views/shop-panel-view";
 import { StatusView } from "@/components/nirookar/views/status-view";
 import { AuthProvider } from "@/hooks/use-auth";
 import { isTabView, useAppView } from "@/lib/navigation";
@@ -40,6 +43,9 @@ export default function Page() {
         {view === "login-customer" ? <AuthFlowView role="customer" /> : null}
         {view === "login-installer" ? <AuthFlowView role="installer" /> : null}
         {view === "login-shop" ? <AuthFlowView role="shop" /> : null}
+        {view === "panel-customer" ? <CustomerPanelView /> : null}
+        {view === "panel-installer" ? <InstallerPanelView /> : null}
+        {view === "panel-shop" ? <ShopPanelView /> : null}
         <BottomNav current={view} />
       </div>
     </AuthProvider>

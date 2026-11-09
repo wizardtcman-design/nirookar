@@ -12,6 +12,9 @@
  * ۴) گارانتی نصب: فعال/غیرفعال + مدت برای هر دسته شغلی
  * ۵) اولویت نصاب وابسته به فروشگاه: پیش‌فرض ۲ ساعت (قانون ۲۴ ساعت قبلی حذف شد)
  * ۶) مهلت تأیید کار توسط مشتری: پیش‌فرض ۲۴ ساعت + تسویه با نصاب ظرف ۲۴ ساعت
+ * ۷) احراز هویت: سوئیچ otpEnabled — تا زمان خرید پنل پیامکی، ورود/ثبت‌نام پیش‌فرض
+ *    با «شماره موبایل + کد ملی + رمز عبور» انجام می‌شود و OTP فقط با فعال‌سازی
+ *    همین سوئیچ از پنل مدیریت روشن می‌شود (دستور مالک — نسخه 0.1.2).
  */
 
 /** مدل درآمد پلتفرم از نصاب‌ها */
@@ -90,6 +93,14 @@ export interface PlatformSettings {
   // ── پلیس خودکار چت (ضد خروج تراکنش از اپ) ──
   chatPoliceEnabled: boolean;
 
+  // ── احراز هویت ──
+  /**
+   * سوئیچ ورود با کد تأیید پیامکی — پیش‌فرض false.
+   * false: ورود/ثبت‌نام با «شماره موبایل + کد ملی + رمز عبور» (بدون OTP).
+   * true: جریان کد تأیید (Sandbox فعلی یا سرویس پیامکی واقعی در آینده).
+   */
+  otpEnabled: boolean;
+
   // ── شهرهای فعال پلتفرم (قابل تعریف از پنل — بدون هاردکد شهر) ──
   cities: readonly string[];
 }
@@ -131,6 +142,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   bnplLabel: "امکان پرداخت در ۴ قسط بدون چک و ضامن",
 
   chatPoliceEnabled: true,
+
+  otpEnabled: false,
 
   cities: ["تهران"],
 };
@@ -284,6 +297,8 @@ export function sanitizePlatformSettings(input: Partial<PlatformSettings>): Plat
     bnplLabel: (input.bnplLabel ?? base.bnplLabel).trim() || base.bnplLabel,
 
     chatPoliceEnabled: Boolean(input.chatPoliceEnabled ?? base.chatPoliceEnabled),
+
+    otpEnabled: Boolean(input.otpEnabled ?? base.otpEnabled),
 
     cities:
       Array.isArray(input.cities) && input.cities.length > 0

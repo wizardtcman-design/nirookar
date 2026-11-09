@@ -1,19 +1,16 @@
 "use client";
 
 import {
-  BadgeCheck,
-  CircleCheck,
   ClipboardCheck,
-  FileText,
-  Handshake,
-  House,
+  KeyRound,
+  Loader2,
   LogIn,
   MailCheck,
-  ScrollText,
   ShieldCheck,
   Smartphone,
   Store,
   UserRound,
+  UserPlus,
   Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -23,8 +20,8 @@ import { SPECIALTIES } from "@shared/specialties";
 import {
   normalizeDigits,
   validateNationalId,
+  validatePassword,
   validateRequiredText,
-  validateSheba,
   type FieldValidation,
 } from "@shared/validation";
 
@@ -41,44 +38,83 @@ import type { AuthUser } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
 type UserRole = "customer" | "installer" | "shop";
-type FlowStep = "phone" | "otp" | "register" | "pending";
+type FlowStep = "login" | "phone" | "otp" | "register";
 
 interface PlatformConfig {
   cities: string[];
+  otpEnabled: boolean;
 }
 
 /**
- * جریان واقعی ورود و ثبت‌نام — فاز ۲ گام ۱.
+ * جریان واقعی ورود و ثبت‌نام — فاز ۲ گام ۲ (نسخه 0.1.2) — دو حالته.
  *
- * ۱) شماره موبایل → ۲) کد تأیید OTP (آزمایشی: 12345) → ۳) کاربر جدید: فرم
- * ثبت‌نام متناسب با نقش / کاربر موجود: ورود به نشست واقعی.
- * نصاب و فروشگاه پس از ثبت‌نام «در انتظار بررسی و تأیید حضوری» هستند.
+ * حالت پیش‌فرض (otpEnabled خاموش در پنل مدیریت):
+ *   ورود = شماره موبایل + رمز عبور / ثبت‌نام = موبایل + کد ملی یکتا + نام + رمز
+ *   عبور + فیلد اختصاصی نقش (نصاب: تخصص و سابقه / فروشگاه: نام فروشگاه).
+ *   کاربر بلافاصله وارد پنل شخصی خود می‌شود؛ مدارک نصاب/فروشگاه بعداً از کارت
+ *   «تکمیل احراز هویت و مدارک» همان پنل ارسال می‌شود.
+ *
+ * حالت otpEnabled روشن: جریان کد تأیید (Sandbox فعلی تا اتصال سرویس پیامک واقعی).
  */
 export function AuthFlowView({ role }: { role: UserRole }) {
   const definition = getRole(role);
   const theme = ROLE_THEME_STYLES[definition.theme];
   const { setUser } = useAuth();
 
-  const [step, setStep] = useState<FlowStep>("phone");
+  const [step, setStep] = useState<FlowStep>("login");
+  const [config, setConfig] = useState<PlatformConfig | null>(null);
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [revealed, setRevealed] = useState(false);
   const [devCode, setDevCode] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [config, setConfig] = useState<PlatformConfig | null>(null);
 
   useEffect(() => {
     fetch("/api/platform/config")
       .then((response) => response.json())
-      .then((data: { ok: boolean; cities?: string[] }) => {
-        if (data.ok && Array.isArray(data.cities)) setConfig({ cities: data.cities });
+      .then((data: { ok: boolean; cities?: string[]; otpEnabled?: boolean }) => {
+        if (data.ok) {
+          setConfig({
+            cities: Array.isArray(data.cities) ? data.cities : ["تهران"],
+            otpEnabled: Boolean(data.otpEnabled),
+          });
+        }
       })
       .catch(() => undefined);
   }, []);
 
   const StepIcon = role === "installer" ? Wrench : role === "shop" ? Store : UserRound;
+  const otpEnabled = config?.otpEnabled ?? false;
+  const resolvedStep: FlowStep | null = config === null ? null : otpEnabled && step === "login" ? "phone" : step;
 
-  // ── گام ۱: دریافت کد ──
+  // ── ورود با رمز عبور (حالت پیش‌فرض) ──
+  async function handlePasswordLogin(event: React.FormEvent) {
+    event.preventDefault();
+    const value = normalizeDigits(phone).replace(/[\s-]/g, "").trim();
+    if (!/^09\d{9}$/.test(value)) {
+      setError("شماره موبایل معتبر نیست (مثال: 09123456789)");
+      return;
+    }
+    if (!password) {
+      setError("رمز عبور را وارد کنید");
+      return;
+    }
+    setPhone(value);
+    setSubmitting(true);
+    setError(null);
+    try {
+      const user = await authRepository.loginWithPassword(value, password);
+      applyLoginResult(user);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "خطای نامشخص");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // ── گام ۱ OTP: دریافت کد ──
   async function handleRequestOtp(event?: React.FormEvent) {
     event?.preventDefault();
     const value = normalizeDigits(phone).replace(/[\s-]/g, "").trim();
@@ -100,7 +136,7 @@ export function AuthFlowView({ role }: { role: UserRole }) {
     }
   }
 
-  // ── گام ۲: تأیید کد ──
+  // ── گام ۲ OTP: تأیید کد ──
   async function handleVerifyOtp(event: React.FormEvent) {
     event.preventDefault();
     const code = normalizeDigits(otp).replace(/\D/g, "");
@@ -124,21 +160,22 @@ export function AuthFlowView({ role }: { role: UserRole }) {
     }
   }
 
-  // ── پس از ورود یا ثبت‌نام موفق ──
+  // ── پس از ورود یا ثبت‌نام موفق → ورود بلافاصله به پنل شخصی ──
   function applyLoginResult(user: AuthUser) {
     setUser(user);
-    if (user.role === "installer" || user.role === "shop") {
-      if (user.profileStatus === "PENDING_VERIFICATION") {
-        setStep("pending");
-        return;
-      }
+    if (user.role === "installer") {
       toast.success(`${user.displayName} عزیز، خوش آمدید!`);
-      navigateToView("home");
+      navigateToView("panel-installer");
+      return;
+    }
+    if (user.role === "shop") {
+      toast.success(`${user.displayName} عزیز، خوش آمدید!`);
+      navigateToView("panel-shop");
       return;
     }
     if (user.role === "customer") {
       toast.success(`${user.displayName} عزیز، خوش آمدید!`);
-      navigateToView("home");
+      navigateToView("panel-customer");
       return;
     }
     // نقش مدیریتی — دکمه طلایی اتاق فرمان در هدر فعال شده است
@@ -146,9 +183,16 @@ export function AuthFlowView({ role }: { role: UserRole }) {
     navigateToView("admin");
   }
 
+  const headingByStep: Record<FlowStep, string> = {
+    login: definition.title,
+    phone: definition.title,
+    otp: definition.title,
+    register: `ثبت‌نام ${definition.title.replace("ورود ", "")}`,
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
-      <SubPageHeader title={step === "register" ? `ثبت‌نام ${definition.title.replace("ورود ", "")}` : definition.title} />
+      <SubPageHeader title={resolvedStep === "register" ? headingByStep.register : definition.title} />
 
       <main className="flex-1 px-4 pb-10 pt-5 lg:py-10">
         <section className="mx-auto w-full max-w-sm sm:max-w-md">
@@ -158,17 +202,43 @@ export function AuthFlowView({ role }: { role: UserRole }) {
               <StepIcon className="size-8" strokeWidth={1.8} aria-hidden="true" />
             </span>
             <h2 className="mt-3 text-xl font-black text-brand-navy">
-              {step === "register"
-                ? "تکمیل ثبت‌نام"
-                : step === "pending"
-                  ? "پرونده در انتظار بررسی"
-                  : definition.title}
+              {resolvedStep === null ? definition.title : headingByStep[resolvedStep]}
             </h2>
             <p className="mt-1 text-[13px] text-slate-500">{definition.subtitle}</p>
           </div>
 
           <div className="mt-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
-            {step === "phone" ? (
+            {resolvedStep === null ? (
+              <div aria-busy="true" aria-label="در حال بارگذاری فرم ورود" className="flex h-24 items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-brand-teal" aria-hidden="true" />
+              </div>
+            ) : null}
+
+            {resolvedStep === "login" ? (
+              <LoginPasswordStep
+                phone={phone}
+                password={password}
+                revealed={revealed}
+                onPhoneChange={(value) => {
+                  setPhone(value);
+                  setError(null);
+                }}
+                onPasswordChange={(value) => {
+                  setPassword(value);
+                  setError(null);
+                }}
+                onToggleReveal={() => setRevealed((v) => !v)}
+                onSubmit={handlePasswordLogin}
+                onGoRegister={() => {
+                  setError(null);
+                  setStep("register");
+                }}
+                submitting={submitting}
+                error={error}
+              />
+            ) : null}
+
+            {resolvedStep === "phone" ? (
               <PhoneStep
                 phone={phone}
                 onPhoneChange={(value) => {
@@ -181,7 +251,7 @@ export function AuthFlowView({ role }: { role: UserRole }) {
               />
             ) : null}
 
-            {step === "otp" ? (
+            {resolvedStep === "otp" ? (
               <OtpStep
                 phone={phone}
                 devCode={devCode}
@@ -200,24 +270,21 @@ export function AuthFlowView({ role }: { role: UserRole }) {
               />
             ) : null}
 
-            {step === "register" ? (
+            {resolvedStep === "register" ? (
               <RegisterStep
                 role={role}
                 phone={phone}
                 cities={config?.cities ?? ["تهران"]}
+                passwordMode={!otpEnabled}
                 onDone={applyLoginResult}
               />
             ) : null}
-
-            {step === "pending" ? <PendingStatusScreen /> : null}
           </div>
 
-          {step !== "pending" ? (
-            <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-              <ShieldCheck className="size-4 text-brand-teal" aria-hidden="true" />
-              امن و مطمئن | نشست شما با کوکی امن سمت سرور نگهداری می‌شود
-            </p>
-          ) : null}
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck className="size-4 text-brand-teal" aria-hidden="true" />
+            امن و مطمئن | نشست شما با کوکی امن سمت سرور نگهداری می‌شود
+          </p>
         </section>
       </main>
     </div>
@@ -226,6 +293,87 @@ export function AuthFlowView({ role }: { role: UserRole }) {
 
 /* ──────────────────────────────────────────────── */
 
+/** گام ورود با رمز عبور — حالت پیش‌فرض (otpEnabled خاموش) */
+function LoginPasswordStep({
+  phone,
+  password,
+  revealed,
+  onPhoneChange,
+  onPasswordChange,
+  onToggleReveal,
+  onSubmit,
+  onGoRegister,
+  submitting,
+  error,
+}: {
+  phone: string;
+  password: string;
+  revealed: boolean;
+  onPhoneChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onToggleReveal: () => void;
+  onSubmit: (event: React.FormEvent) => void;
+  onGoRegister: () => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  return (
+    <form className="space-y-4" noValidate onSubmit={onSubmit}>
+      {error ? (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3.5">
+          <p className="text-xs font-bold leading-6 text-rose-800">{error}</p>
+        </div>
+      ) : null}
+      <p className="text-[13px] leading-6 text-slate-500">
+        با شماره موبایل و رمز عبور خود وارد شوید. اگر حساب ندارید، همین پایین ثبت‌نام کنید.
+      </p>
+      <AppTextField
+        id="auth-phone"
+        name="phone"
+        label="شماره موبایل"
+        placeholder="09xxxxxxxxx"
+        icon={Smartphone}
+        inputMode="tel"
+        autoComplete="tel"
+        value={phone}
+        onChange={onPhoneChange}
+      />
+      <AppTextField
+        id="auth-password"
+        name="password"
+        label="رمز عبور"
+        type="password"
+        placeholder="••••••••"
+        icon={KeyRound}
+        autoComplete="current-password"
+        value={password}
+        onChange={onPasswordChange}
+        onToggleReveal={onToggleReveal}
+        revealed={revealed}
+      />
+      <PrimaryButton type="submit" disabled={submitting}>
+        <span className="flex items-center gap-2">
+          <LogIn className="size-5" aria-hidden="true" />
+          {submitting ? "در حال ورود..." : "ورود به حساب"}
+        </span>
+      </PrimaryButton>
+
+      <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-center">
+        <p className="text-[12px] text-slate-500">حساب ندارید؟</p>
+        <button
+          type="button"
+          onClick={onGoRegister}
+          className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-[13px] font-extrabold text-brand-teal transition-opacity hover:opacity-75"
+        >
+          <UserPlus className="size-4" aria-hidden="true" />
+          ثبت‌نام کنید (موبایل + کد ملی + رمز عبور)
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** گام دریافت کد — فقط وقتی otpEnabled در پنل مدیریت روشن است */
 function PhoneStep({
   phone,
   onPhoneChange,
@@ -266,6 +414,7 @@ function PhoneStep({
   );
 }
 
+/** گام کد تأیید — فقط وقتی otpEnabled روشن است */
 function OtpStep({
   phone,
   devCode,
@@ -343,20 +492,22 @@ function RegisterStep({
   role,
   phone,
   cities,
+  passwordMode,
   onDone,
 }: {
   role: UserRole;
   phone: string;
   cities: string[];
+  passwordMode: boolean;
   onDone: (user: AuthUser) => void;
 }) {
   if (role === "customer") {
-    return <CustomerRegisterForm phone={phone} cities={cities} onDone={onDone} />;
+    return <CustomerRegisterForm phone={phone} cities={cities} passwordMode={passwordMode} onDone={onDone} />;
   }
   if (role === "installer") {
-    return <InstallerRegisterForm phone={phone} cities={cities} onDone={onDone} />;
+    return <InstallerRegisterForm phone={phone} cities={cities} passwordMode={passwordMode} onDone={onDone} />;
   }
-  return <ShopRegisterForm phone={phone} cities={cities} onDone={onDone} />;
+  return <ShopRegisterForm phone={phone} cities={cities} passwordMode={passwordMode} onDone={onDone} />;
 }
 
 /** فیلد select سبک مشترک (شهر) */
@@ -404,18 +555,81 @@ function CitySelect({
   );
 }
 
+/* ── فیلد موبایل مشترک فرم ثبت‌نام ── */
+function PhoneField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  return (
+    <AppTextField
+      id="reg-phone"
+      name="phone"
+      label="شماره موبایل"
+      placeholder="09xxxxxxxxx"
+      icon={Smartphone}
+      inputMode="tel"
+      autoComplete="tel"
+      value={value}
+      onChange={onChange}
+      error={error}
+    />
+  );
+}
+
+/* ── فیلد رمز عبور مشترک فرم ثبت‌نام ── */
+function PasswordField({
+  id,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <AppTextField
+      id={id}
+      name={id}
+      label="رمز عبور"
+      type="password"
+      placeholder="حداقل ۶ کاراکتر"
+      icon={KeyRound}
+      autoComplete="new-password"
+      value={value}
+      onChange={onChange}
+      onToggleReveal={() => setRevealed((v) => !v)}
+      revealed={revealed}
+      error={error}
+      hint="این رمز برای ورودهای بعدی استفاده می‌شود"
+    />
+  );
+}
+
 /* ── فرم مشتری ── */
 function CustomerRegisterForm({
   phone,
   cities,
+  passwordMode,
   onDone,
 }: {
   phone: string;
   cities: string[];
+  passwordMode: boolean;
   onDone: (user: AuthUser) => void;
 }) {
+  const [phoneField, setPhoneField] = useState(phone);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [password, setPassword] = useState("");
   const [city, setCity] = useState(cities[0] ?? "");
   const [neighborhood, setNeighborhood] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
@@ -424,9 +638,13 @@ function CustomerRegisterForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const phoneNormalized = normalizeDigits(phoneField).replace(/[\s-]/g, "").trim();
     const nextErrors: FormErrors = {
+      phone: /^09\d{9}$/.test(phoneNormalized) ? undefined : "شماره موبایل معتبر نیست (مثال: 09123456789)",
       firstName: check(validateRequiredText(firstName, 2)),
       lastName: check(validateRequiredText(lastName, 2)),
+      nationalId: check(validateNationalId(nationalId)),
+      password: passwordMode ? check(validatePassword(password)) : undefined,
       city: city ? undefined : "شهر را انتخاب کنید",
     };
     setErrors(nextErrors);
@@ -436,9 +654,11 @@ function CustomerRegisterForm({
     try {
       const user = await authRepository.register({
         role: "customer",
-        phone,
+        phone: phoneNormalized,
+        password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        nationalId: normalizeDigits(nationalId).replace(/\D/g, ""),
         city,
         neighborhood: neighborhood.trim() || undefined,
         photoUrl: photo,
@@ -454,39 +674,58 @@ function CustomerRegisterForm({
   return (
     <form className="space-y-4" noValidate onSubmit={handleSubmit}>
       <RegisterError errors={errors} />
+      <PhoneField value={phoneField} onChange={(v) => { setPhoneField(v); setErrors((p) => ({ ...p, phone: undefined })); }} error={errors.phone} />
       <div className="grid gap-4 sm:grid-cols-2">
         <AppTextField id="c-first" name="firstName" label="نام" placeholder="مثلاً سارا" value={firstName} onChange={(v) => setFirstName(v)} error={errors.firstName} autoComplete="given-name" />
         <AppTextField id="c-last" name="lastName" label="نام خانوادگی" placeholder="مثلاً محمدی" value={lastName} onChange={(v) => setLastName(v)} error={errors.lastName} autoComplete="family-name" />
       </div>
+      <AppTextField
+        id="c-nid"
+        name="nationalId"
+        label="کد ملی (الزامی و یکتا)"
+        placeholder="کد ملی ۱۰ رقمی"
+        value={nationalId}
+        onChange={(v) => {
+          setNationalId(v);
+          setErrors((p) => ({ ...p, nationalId: undefined }));
+        }}
+        error={errors.nationalId}
+        inputMode="numeric"
+        hint="هر کد ملی فقط یک حساب در نیروکار می‌سازد"
+      />
+      {passwordMode ? (
+        <PasswordField id="c-password" value={password} onChange={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: undefined })); }} error={errors.password} />
+      ) : null}
       <CitySelect id="c-city" cities={cities} value={city} onChange={setCity} error={errors.city} />
       <AppTextField id="c-neighborhood" name="neighborhood" label="محله (اختیاری)" placeholder="مثلاً سعادت‌آباد" value={neighborhood} onChange={(v) => setNeighborhood(v)} />
       <ImageUploadField id="c-photo" label="عکس پروفایل" value={photo} onChange={setPhoto} error={errors.photo} />
       <PrimaryButton type="submit" disabled={submitting}>
-        {submitting ? "در حال ثبت..." : "تکمیل ثبت‌نام"}
+        {submitting ? "در حال ثبت..." : "ثبت‌نام و ورود به پنل"}
       </PrimaryButton>
     </form>
   );
 }
 
-/* ── فرم نصاب ── */
+/* ── فرم نصاب — ثبت‌نام اولیه؛ مدارک از پنل شخصی ارسال می‌شود ── */
 function InstallerRegisterForm({
   phone,
   cities,
+  passwordMode,
   onDone,
 }: {
   phone: string;
   cities: string[];
+  passwordMode: boolean;
   onDone: (user: AuthUser) => void;
 }) {
-  const [fullName, setFullName] = useState("");
+  const [phoneField, setPhoneField] = useState(phone);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [password, setPassword] = useState("");
   const [city, setCity] = useState(cities[0] ?? "");
-  const [residenceAddress, setResidenceAddress] = useState("");
   const [workHistory, setWorkHistory] = useState("");
   const [specialties, setSpecialties] = useState<string[]>([]);
-  const [sheba, setSheba] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [card, setCard] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -496,16 +735,16 @@ function InstallerRegisterForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const phoneNormalized = normalizeDigits(phoneField).replace(/[\s-]/g, "").trim();
     const nextErrors: FormErrors = {
-      fullName: check(validateRequiredText(fullName, 3)),
+      phone: /^09\d{9}$/.test(phoneNormalized) ? undefined : "شماره موبایل معتبر نیست (مثال: 09123456789)",
+      firstName: check(validateRequiredText(firstName, 2)),
+      lastName: check(validateRequiredText(lastName, 2)),
       nationalId: check(validateNationalId(nationalId)),
+      password: passwordMode ? check(validatePassword(password)) : undefined,
       city: city ? undefined : "شهر را انتخاب کنید",
-      residenceAddress: residenceAddress.trim().length >= 10 ? undefined : "آدرس دقیق محل سکونت را کامل وارد کنید (محرمانه — فقط برای ادمین)",
       workHistory: workHistory.trim().length >= 10 ? undefined : "سابقه کار و فروشگاه‌های قبلی را کامل بنویسید",
       specialties: specialties.length ? undefined : "حداقل یک تخصص انتخاب کنید",
-      sheba: check(validateSheba(sheba)),
-      photo: photo ? undefined : "عکس پروفایل واقعی الزامی است",
-      card: card ? undefined : "تصویر کارت ملی الزامی است",
     };
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
@@ -514,16 +753,14 @@ function InstallerRegisterForm({
     try {
       const user = await authRepository.register({
         role: "installer",
-        phone,
-        fullName: fullName.trim(),
+        phone: phoneNormalized,
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         nationalId: normalizeDigits(nationalId).replace(/\D/g, ""),
         city,
-        residenceAddress: residenceAddress.trim(),
         workHistory: workHistory.trim(),
         specialties,
-        sheba: normalizeDigits(sheba).replace(/\s/g, "").toUpperCase(),
-        photoUrl: photo as string,
-        nationalCardUrl: card as string,
       });
       onDone(user);
     } catch (error) {
@@ -538,16 +775,24 @@ function InstallerRegisterForm({
       <RegisterError errors={errors} />
 
       <HonestNotice
-        title="ضمانت همکاری"
-        body="پس از ثبت‌نام، برای فعال شدن پرونده باید حضوری به انبار/دفتر مرکزی مراجعه کنید، قرارداد را امضا و سفته ضمانت تحویل دهید."
+        title="ثبت‌نام دومرحله‌ای"
+        body="اول با هویت ثبت‌نام کنید و وارد پنل نصاب شوید؛ مدارک (کد پستی، آدرس، شبا و عکس‌ها) را از کارت «تکمیل احراز هویت و مدارک» در همان پنل ارسال می‌کنید. فعال شدن نهایی با مراجعه حضوری، امضای قرارداد و سفته ضمانت است."
       />
 
-      <AppTextField id="i-name" name="fullName" label="نام و نام خانوادگی" placeholder="مثلاً رضا کریمی" value={fullName} onChange={(v) => setFullName(v)} error={errors.fullName} autoComplete="name" />
+      <PhoneField value={phoneField} onChange={(v) => { setPhoneField(v); setErrors((p) => ({ ...p, phone: undefined })); }} error={errors.phone} />
+
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppTextField id="i-nid" name="nationalId" label="کد ملی" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
+        <AppTextField id="i-first" name="firstName" label="نام" placeholder="مثلاً رضا" value={firstName} onChange={(v) => setFirstName(v)} error={errors.firstName} autoComplete="given-name" />
+        <AppTextField id="i-last" name="lastName" label="نام خانوادگی" placeholder="مثلاً کریمی" value={lastName} onChange={(v) => setLastName(v)} error={errors.lastName} autoComplete="family-name" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AppTextField id="i-nid" name="nationalId" label="کد ملی (الزامی و یکتا)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
         <CitySelect id="i-city" cities={cities} value={city} onChange={setCity} error={errors.city} />
       </div>
-      <AppTextField id="i-address" name="residenceAddress" label="آدرس دقیق محل سکونت (محرمانه)" placeholder="خیابان، کوچه، پلاک، واحد" value={residenceAddress} onChange={(v) => setResidenceAddress(v)} error={errors.residenceAddress} hint="این آدرس فقط در پنل مدیریت نگهداری می‌شود و به هیچ کاربر دیگری نمایش داده نمی‌شود" />
+      {passwordMode ? (
+        <PasswordField id="i-password" value={password} onChange={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: undefined })); }} error={errors.password} />
+      ) : null}
+
       <div className="w-full">
         <label htmlFor="i-history" className="mb-1.5 block text-[13px] font-bold text-brand-navy">
           سابقه کار و فروشگاه‌های محل فعالیت قبلی
@@ -595,46 +840,46 @@ function InstallerRegisterForm({
         {errors.specialties ? <p role="alert" className="mt-1.5 text-xs font-medium text-red-600">{errors.specialties}</p> : null}
       </fieldset>
 
-      <AppTextField id="i-sheba" name="sheba" label="شماره شبا" placeholder="IR______________________" value={sheba} onChange={(v) => setSheba(v)} error={errors.sheba} dir="ltr" hint="برای تسویه‌حساب سفارش‌ها استفاده می‌شود" />
-      <ImageUploadField id="i-photo" label="عکس پروفایل واقعی" required value={photo} onChange={setPhoto} error={errors.photo} />
-      <ImageUploadField id="i-card" label="تصویر کارت ملی" required value={card} onChange={setCard} error={errors.card} />
-
       <PrimaryButton type="submit" disabled={submitting}>
-        {submitting ? "در حال ثبت پرونده..." : "ثبت پرونده نصاب"}
+        {submitting ? "در حال ثبت..." : "ثبت‌نام و ورود به پنل نصاب"}
       </PrimaryButton>
     </form>
   );
 }
 
-/* ── فرم فروشگاه ── */
+/* ── فرم فروشگاه — ثبت‌نام اولیه؛ مدارک از پنل شخصی ارسال می‌شود ── */
 function ShopRegisterForm({
   phone,
+  cities,
+  passwordMode,
   onDone,
 }: {
   phone: string;
   cities: string[];
+  passwordMode: boolean;
   onDone: (user: AuthUser) => void;
 }) {
-  const [shopName, setShopName] = useState("");
-  const [ownerName, setOwnerName] = useState("");
+  const [phoneField, setPhoneField] = useState(phone);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [nationalId, setNationalId] = useState("");
-  const [address, setAddress] = useState("");
-  const [contactPhone, setContactPhone] = useState(phone);
-  const [sheba, setSheba] = useState("");
-  const [logo, setLogo] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [city, setCity] = useState(cities[0] ?? "");
+  const [shopName, setShopName] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    const phoneNormalized = normalizeDigits(phoneField).replace(/[\s-]/g, "").trim();
     const nextErrors: FormErrors = {
-      shopName: check(validateRequiredText(shopName, 3)),
-      ownerName: check(validateRequiredText(ownerName, 3)),
+      phone: /^09\d{9}$/.test(phoneNormalized) ? undefined : "شماره موبایل معتبر نیست (مثال: 09123456789)",
+      firstName: check(validateRequiredText(firstName, 2)),
+      lastName: check(validateRequiredText(lastName, 2)),
       nationalId: check(validateNationalId(nationalId)),
-      address: address.trim().length >= 10 ? undefined : "آدرس دقیق فروشگاه را کامل وارد کنید",
-      contactPhone: /^09\d{9}$/.test(normalizeDigits(contactPhone).replace(/\D/g, "")) ? undefined : "شماره تماس معتبر نیست",
-      sheba: check(validateSheba(sheba)),
-      logo: logo ? undefined : "لوگو یا تصویر سردر فروشگاه الزامی است",
+      password: passwordMode ? check(validatePassword(password)) : undefined,
+      city: city ? undefined : "شهر را انتخاب کنید",
+      shopName: check(validateRequiredText(shopName, 3)),
     };
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
@@ -643,14 +888,13 @@ function ShopRegisterForm({
     try {
       const user = await authRepository.register({
         role: "shop",
-        phone,
-        shopName: shopName.trim(),
-        ownerName: ownerName.trim(),
+        phone: phoneNormalized,
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         nationalId: normalizeDigits(nationalId).replace(/\D/g, ""),
-        address: address.trim(),
-        contactPhone: normalizeDigits(contactPhone).replace(/\D/g, ""),
-        sheba: normalizeDigits(sheba).replace(/\s/g, "").toUpperCase(),
-        logoUrl: logo as string,
+        city,
+        shopName: shopName.trim(),
       });
       onDone(user);
     } catch (error) {
@@ -665,76 +909,29 @@ function ShopRegisterForm({
       <RegisterError errors={errors} />
 
       <HonestNotice
-        title="همکاری فروشگاه"
-        body="پس از ثبت‌نام، پرونده فروشگاه در انتظار بررسی و تأیید پنل مدیریت قرار می‌گیرد؛ سپس غرفه شما فعال می‌شود."
+        title="ثبت‌نام دومرحله‌ای"
+        body="اول فروشگاه را ثبت کنید و وارد پنل فروشگاه شوید؛ مدارک (کد پستی، آدرس، شبا، لوگو و کارت ملی مالک) را از کارت «تکمیل احراز هویت و مدارک» در همان پنل ارسال می‌کنید."
       />
+
+      <PhoneField value={phoneField} onChange={(v) => { setPhoneField(v); setErrors((p) => ({ ...p, phone: undefined })); }} error={errors.phone} />
 
       <AppTextField id="s-name" name="shopName" label="نام فروشگاه" placeholder="مثلاً گالری دکوراسیون مهر" value={shopName} onChange={(v) => setShopName(v)} error={errors.shopName} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppTextField id="s-owner" name="ownerName" label="نام مالک" placeholder="مثلاً حاج قربان" value={ownerName} onChange={(v) => setOwnerName(v)} error={errors.ownerName} />
-        <AppTextField id="s-nid" name="nationalId" label="کد ملی مالک" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
+        <AppTextField id="s-first" name="firstName" label="نام مالک" placeholder="مثلاً حاج قربان" value={firstName} onChange={(v) => setFirstName(v)} error={errors.firstName} autoComplete="given-name" />
+        <AppTextField id="s-last" name="lastName" label="نام خانوادگی مالک" placeholder="مثلاً رضایی" value={lastName} onChange={(v) => setLastName(v)} error={errors.lastName} autoComplete="family-name" />
       </div>
-      <AppTextField id="s-address" name="address" label="آدرس دقیق فروشگاه" placeholder="خیابان، بازار، پلاک" value={address} onChange={(v) => setAddress(v)} error={errors.address} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppTextField id="s-phone" name="contactPhone" label="شماره تماس فروشگاه" placeholder="09xxxxxxxxx" value={contactPhone} onChange={(v) => setContactPhone(v)} error={errors.contactPhone} inputMode="tel" />
-        <AppTextField id="s-sheba" name="sheba" label="شماره شبا" placeholder="IR______________________" value={sheba} onChange={(v) => setSheba(v)} error={errors.sheba} />
+        <AppTextField id="s-nid" name="nationalId" label="کد ملی مالک (الزامی و یکتا)" placeholder="کد ملی ۱۰ رقمی" value={nationalId} onChange={(v) => { setNationalId(v); setErrors((p) => ({ ...p, nationalId: undefined })); }} error={errors.nationalId} inputMode="numeric" />
+        <CitySelect id="s-city" cities={cities} value={city} onChange={setCity} error={errors.city} />
       </div>
-      <ImageUploadField id="s-logo" label="لوگو یا تصویر سردر" required value={logo} onChange={setLogo} error={errors.logo} />
+      {passwordMode ? (
+        <PasswordField id="s-password" value={password} onChange={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: undefined })); }} error={errors.password} />
+      ) : null}
 
       <PrimaryButton type="submit" disabled={submitting}>
-        {submitting ? "در حال ثبت پرونده..." : "ثبت پرونده فروشگاه"}
+        {submitting ? "در حال ثبت..." : "ثبت‌نام و ورود به پنل فروشگاه"}
       </PrimaryButton>
     </form>
-  );
-}
-
-/* ── صفحه انتظار نصاب/فروشگاه ── */
-function PendingStatusScreen() {
-  const steps: readonly { icon: typeof FileText; title: string; body: string; done?: boolean }[] = [
-    { icon: ClipboardCheck, title: "ثبت‌نام و بارگذاری مدارک", body: "پرونده شما با موفقیت در سیستم ثبت شد.", done: true },
-    { icon: Handshake, title: "مراجعه حضوری و امضای قرارداد", body: "به انبار/دفتر مرکزی نیروکار مراجعه کنید و قرارداد همکاری را امضا نمایید." },
-    { icon: ScrollText, title: "تحویل سفته ضمانت و تأیید مدیر", body: "پس از دریافت سفته، مدیر پنل تیک «تأیید قرارداد و دریافت سفته حضوری» را ثبت می‌کند و نشان تایید شما فعال می‌شود." },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-        <BadgeCheck className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
-        <p className="text-xs leading-6 text-amber-900">
-          <span className="font-extrabold">وضعیت پرونده: در انتظار بررسی و تأیید حضوری</span>
-          <br />
-          پرونده شما ثبت شد و در پنل مدیریت قابل مشاهده است. برای فعال شدن، مراحل زیر کامل شود.
-        </p>
-      </div>
-
-      <ol className="space-y-3">
-        {steps.map((step, index) => (
-          <li key={step.title} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-            <span
-              className={cn(
-                "flex size-9 shrink-0 items-center justify-center rounded-full",
-                step.done ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-500",
-              )}
-            >
-              {step.done ? <CircleCheck className="size-5" aria-hidden="true" /> : <step.icon className="size-4.5" aria-hidden="true" />}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[13px] font-extrabold text-brand-navy">
-                {index + 1}. {step.title}
-              </p>
-              <p className="mt-0.5 text-[12px] leading-5 text-slate-500">{step.body}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      <PrimaryButton type="button" onClick={() => navigateToView("home")}>
-        <span className="flex items-center gap-2">
-          <House className="size-5" aria-hidden="true" />
-          بازگشت به صفحه اصلی
-        </span>
-      </PrimaryButton>
-    </div>
   );
 }
 

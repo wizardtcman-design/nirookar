@@ -46,9 +46,9 @@ export async function GET() {
     city: user.customerProfile?.city ?? user.installerProfile?.city ?? null,
     status:
       user.role === "installer"
-        ? (user.installerProfile?.status ?? "PENDING_VERIFICATION")
+        ? (user.installerProfile?.status ?? "INCOMPLETE")
         : user.role === "shop"
-          ? (user.shopProfile?.status ?? "PENDING_VERIFICATION")
+          ? (user.shopProfile?.status ?? "INCOMPLETE")
           : "ACTIVE",
     createdAt: user.createdAt.toISOString(),
   }));

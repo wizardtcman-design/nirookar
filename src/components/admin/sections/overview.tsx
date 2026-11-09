@@ -71,7 +71,9 @@ export function OverviewSection() {
 
   const PENDING_ALERTS = [
     { label: "نصاب در انتظار تأیید حضوری (قرارداد و سفته)", value: stats.installersPending },
+    { label: "نصاب ناقص (مدارک ارسال نشده)", value: stats.installersIncomplete },
     { label: "فروشگاه در انتظار تأیید", value: stats.shopsPending },
+    { label: "فروشگاه ناقص (مدارک ارسال نشده)", value: stats.shopsIncomplete },
     { label: "مشتری ثبت‌نام‌شده", value: stats.customers },
   ];
 
@@ -88,7 +90,7 @@ export function OverviewSection() {
           <h2 className="text-sm font-extrabold text-brand-navy">وضعیت پرونده‌ها</h2>
           <LiveBadge />
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
           {PENDING_ALERTS.map((alert) => (
             <div key={alert.label} className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <p className="text-xl font-black text-brand-navy">{String(alert.value)}</p>

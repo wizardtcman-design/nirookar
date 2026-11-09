@@ -94,6 +94,33 @@ export function SettingsSection({ role }: { role: AdminRole }) {
     <div className="space-y-5">
       <SectionBanner live extra="تمام اعداد تجاری پلتفرم فقط از همین بخش مدیریت می‌شوند (قانون صفر درصد هاردکد) و هر تغییر در Audit Log ثبت می‌شود." />
 
+      {/* ── احراز هویت و ورود ── */}
+      <SettingsCard title="احراز هویت و ورود کاربران" live>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-4 rounded-xl bg-slate-50 p-4">
+            <div>
+              <Label htmlFor="otp-enabled" className="text-[13px] font-black text-brand-navy">
+                ورود با کد تأیید پیامکی (OTP)
+              </Label>
+              <p className="mt-1.5 max-w-xl text-[11.5px] leading-6 text-slate-500">
+                خاموش (پیش‌فرض): ورود و ثبت‌نام با «شماره موبایل + کد ملی یکتا + رمز عبور» — بدون نیاز به کد پیامکی،
+                مناسب تا زمان خرید پنل پیامک. روشن: جریان کد تأیید (الان Sandbox با کد آزمایشی؛ بعداً سرویس پیامک واقعی).
+              </p>
+            </div>
+            <Switch
+              id="otp-enabled"
+              checked={settings.otpEnabled}
+              disabled={!canManage}
+              onCheckedChange={(checked) => patch({ otpEnabled: checked })}
+              aria-label="سوئیچ ورود با کد تأیید پیامکی"
+            />
+          </div>
+          <p className="text-[11px] leading-6 text-slate-400">
+            توجه: حساب‌های قدیمی که با کد تأیید ساخته شده‌اند رمز عبور ندارند؛ برای ورود آن‌ها باید همین سوئیچ موقتاً روشن شود.
+          </p>
+        </div>
+      </SettingsCard>
+
       {/* ── درآمد از نصاب ── */}
       <SettingsCard title="درآمد پلتفرم از نصاب‌ها" live>
         <div className="grid gap-4 sm:grid-cols-2">

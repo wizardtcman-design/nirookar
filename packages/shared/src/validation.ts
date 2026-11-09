@@ -23,6 +23,7 @@ export const VALIDATION_MESSAGES = {
   invalidNationalId: "کد ملی معتبر نیست (باید ۱۰ رقم باشد و الگوریتم صحت‌سنجی را پاس کند)",
   duplicateNationalId: "این کد ملی قبلاً در سیستم ثبت شده است",
   invalidSheba: "شماره شبا معتبر نیست (باید با IR شروع شود و ۲۶ کاراکتر باشد)",
+  invalidPostalCode: "کد پستی معتبر نیست (باید ۱۰ رقم باشد و طبق استاندارد پستی ایران، پنج رقم اول آن شامل رقم ۰ یا ۲ نباشد)",
 } as const;
 
 /** تبدیل ارقام فارسی/عربی به لاتین برای اعتبارسنجی یکدست */
@@ -130,6 +131,34 @@ export function validateSheba(raw: string): FieldValidation {
   if (!value) return { ok: false, message: VALIDATION_MESSAGES.required };
   if (!isValidIranianSheba(value)) {
     return { ok: false, message: VALIDATION_MESSAGES.invalidSheba };
+  }
+  return { ok: true };
+}
+
+/**
+ * اعتبارسنجی ساختاری کد پستی ایران (۱۰ رقم) — نسخه 0.1.2.
+ *
+ * قاعده (طبق دستور مالک و استاندارد پستی ایران):
+ * - دقیقاً ۱۰ رقم (ارقام فارسی/عربی خودکار نرمال‌سازی می‌شوند)؛
+ * - در پنج رقم اول (کد منطقه‌ای)، رقم ۰ و ۲ مجاز نیست؛
+ * - پنج رقم دوم (کد توزیع مکانی) هر رقمی می‌تواند باشد.
+ */
+export function isValidIranianPostalCode(raw: string): boolean {
+  const value = normalizeDigits(raw ?? "").replace(/\D/g, "");
+  if (!/^\d{10}$/.test(value)) return false;
+  for (let i = 0; i < 5; i += 1) {
+    const digit = value.charCodeAt(i) - 48;
+    if (digit === 0 || digit === 2) return false;
+  }
+  return true;
+}
+
+/** اعتبارسنجی فیلد کد پستی با پیام صادقانه — فرم پنل شخصی و سرور یکی است */
+export function validatePostalCode(raw: string): FieldValidation {
+  const value = normalizeDigits(raw ?? "").replace(/\D/g, "");
+  if (!value) return { ok: false, message: VALIDATION_MESSAGES.required };
+  if (!isValidIranianPostalCode(value)) {
+    return { ok: false, message: VALIDATION_MESSAGES.invalidPostalCode };
   }
   return { ok: true };
 }

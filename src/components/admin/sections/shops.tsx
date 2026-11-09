@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, Store } from "lucide-react";
+import { BadgeCheck, ImageOff, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -81,18 +81,26 @@ export function ShopsSection() {
             <article key={shop.id} className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <img
-                    src={shop.logoUrl}
-                    alt={`لوگوی ${shop.shopName}`}
-                    className="size-12 shrink-0 rounded-xl border border-slate-100 object-cover"
-                  />
+                  {shop.logoUrl ? (
+                    <img
+                      src={shop.logoUrl}
+                      alt={`لوگوی ${shop.shopName}`}
+                      className="size-12 shrink-0 rounded-xl border border-slate-100 object-cover"
+                    />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300">
+                      <ImageOff className="size-5" />
+                    </span>
+                  )}
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-extrabold text-brand-navy">{shop.shopName}</p>
                     <p className="mt-0.5 truncate text-[11px] text-slate-500">مالک: {shop.ownerName}</p>
                   </div>
                 </div>
-                <StatusChip tone={shop.status === "ACTIVE" ? "green" : "amber"}>
-                  {shop.status === "ACTIVE" ? "همکار فعال" : "در انتظار تأیید"}
+                <StatusChip
+                  tone={shop.status === "ACTIVE" ? "green" : shop.status === "INCOMPLETE" ? "slate" : "amber"}
+                >
+                  {shop.status === "ACTIVE" ? "همکار فعال" : shop.status === "INCOMPLETE" ? "ناقص" : "در انتظار تأیید"}
                 </StatusChip>
               </div>
 
@@ -131,11 +139,21 @@ export function ShopsSection() {
               <div className="space-y-3 text-[13px]">
                 <Row label="نام مالک" value={selected.ownerName} />
                 <Row label="کد ملی مالک" value={selected.nationalId} />
+                <Row label="کد پستی" value={selected.postalCode} ltr />
                 <Row label="آدرس فروشگاه" value={selected.address} />
                 <Row label="شماره تماس" value={selected.contactPhone} />
                 <Row label="شماره شبا" value={selected.sheba} ltr />
-                <div>
-                  <img src={selected.logoUrl} alt={`لوگوی ${selected.shopName}`} className="size-24 rounded-xl border border-slate-100 object-cover" />
+                <div className="flex gap-3">
+                  {selected.logoUrl ? (
+                    <img src={selected.logoUrl} alt={`لوگوی ${selected.shopName}`} className="size-24 rounded-xl border border-slate-100 object-cover" />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-24 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">بدون لوگو</span>
+                  )}
+                  {selected.nationalCardUrl ? (
+                    <img src={selected.nationalCardUrl} alt="کارت ملی مالک" className="size-24 rounded-xl border border-slate-100 object-cover" />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-24 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">بدون کارت ملی</span>
+                  )}
                 </div>
               </div>
 
@@ -143,6 +161,10 @@ export function ShopsSection() {
                 <p className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 p-3.5 text-[12px] font-bold text-emerald-700">
                   <BadgeCheck className="size-4" aria-hidden="true" />
                   این فروشگاه همکار فعال است — تأییدکننده: {selected.verifiedByName ?? "—"}
+                </p>
+              ) : selected.status === "INCOMPLETE" ? (
+                <p className="mt-4 rounded-xl bg-slate-50 p-3.5 text-[12px] font-bold leading-6 text-slate-500">
+                  این فروشگاه هنوز مدارکش را از پنل شخصی ارسال نکرده است؛ تأیید حضوری فقط پس از تکمیل مدارک معنا دارد.
                 </p>
               ) : (
                 <Button type="button" className="mt-4 w-full" onClick={() => void handleVerify()} disabled={verifying}>
@@ -157,12 +179,12 @@ export function ShopsSection() {
   );
 }
 
-function Row({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
+function Row({ label, value, ltr }: { label: string; value: string | null; ltr?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 p-3">
       <span className="shrink-0 text-[11px] font-bold text-slate-500">{label}</span>
       <span dir={ltr ? "ltr" : undefined} className="min-w-0 break-words text-left text-[12px] font-semibold text-slate-800">
-        {value}
+        {value ?? "— هنوز ثبت نشده"}
       </span>
     </div>
   );

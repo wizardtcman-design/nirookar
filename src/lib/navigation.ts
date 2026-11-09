@@ -19,6 +19,9 @@ export type ViewId =
   | "login-customer"
   | "login-installer"
   | "login-shop"
+  | "panel-customer"
+  | "panel-installer"
+  | "panel-shop"
   | "admin";
 
 const VIEW_ROUTES: Record<ViewId, string> = {
@@ -29,6 +32,9 @@ const VIEW_ROUTES: Record<ViewId, string> = {
   "login-customer": "#/login/customer",
   "login-installer": "#/login/installer",
   "login-shop": "#/login/shop",
+  "panel-customer": "#/panel/customer",
+  "panel-installer": "#/panel/installer",
+  "panel-shop": "#/panel/shop",
   admin: "#/admin",
 };
 

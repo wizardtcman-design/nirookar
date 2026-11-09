@@ -14,14 +14,16 @@ export async function GET() {
   const guard = await requireAdmin("dashboard.view");
   if (!guard.ok) return guard.response;
 
-  const [totalUsers, customers, installersPending, installersActive, shopsPending, shopsActive, recentAudit] =
+  const [totalUsers, customers, installersPending, installersActive, installersIncomplete, shopsPending, shopsActive, shopsIncomplete, recentAudit] =
     await Promise.all([
       db.user.count({ where: { role: { notIn: [...ADMIN_ROLES] } } }),
       db.user.count({ where: { role: "customer" } }),
       db.installerProfile.count({ where: { status: "PENDING_VERIFICATION" } }),
       db.installerProfile.count({ where: { status: "ACTIVE" } }),
+      db.installerProfile.count({ where: { status: "INCOMPLETE" } }),
       db.shopProfile.count({ where: { status: "PENDING_VERIFICATION" } }),
       db.shopProfile.count({ where: { status: "ACTIVE" } }),
+      db.shopProfile.count({ where: { status: "INCOMPLETE" } }),
       readRecentAudit(8),
     ]);
 
@@ -32,8 +34,10 @@ export async function GET() {
       customers,
       installersPending,
       installersActive,
+      installersIncomplete,
       shopsPending,
       shopsActive,
+      shopsIncomplete,
       orders: 0,
     },
     recentAudit,

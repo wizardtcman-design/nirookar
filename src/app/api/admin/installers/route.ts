@@ -17,12 +17,13 @@ export interface AdminInstallerRow {
   fullName: string;
   nationalId: string;
   city: string;
-  residenceAddress: string;
+  postalCode: string | null;
+  residenceAddress: string | null;
   workHistory: string;
   specialties: string[];
-  sheba: string;
-  photoUrl: string;
-  nationalCardUrl: string;
+  sheba: string | null;
+  photoUrl: string | null;
+  nationalCardUrl: string | null;
   status: string;
   contractSignedAt: string | null;
   verifiedByName: string | null;
@@ -48,6 +49,7 @@ export async function GET() {
     fullName: profile.fullName,
     nationalId: profile.nationalId,
     city: profile.city,
+    postalCode: profile.postalCode,
     residenceAddress: profile.residenceAddress,
     workHistory: profile.workHistory,
     specialties: safeParseSpecialties(profile.specialties),

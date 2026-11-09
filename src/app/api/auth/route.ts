@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import { isValidMobile, normalizeDigits } from "@shared/validation";
 import { db } from "@/lib/db";
 import { writeAudit } from "@/server/audit";
+import { verifyPassword } from "@/server/password";
 import { ensureSeed } from "@/server/seed";
 import { createSession, destroySession, getSessionUser } from "@/server/session";
 
 /**
- * API احراز هویت واقعی — فاز ۲ گام ۱ (OTP Sandbox).
+ * API احراز هویت واقعی — فاز ۲ گام ۲ (دو حالته بر اساس تنظیم otpEnabled).
  *
  * POST با body.action:
- *  - request : دریافت کد تأیید (در این نسخه Sandbox با کد ثابت آزمایشی)
- *  - verify  : تأیید کد → ورود کاربر موجود یا اعلام «کاربر جدید»
+ *  - request        : دریافت کد تأیید (فقط وقتی otpEnabled فعال است)
+ *  - verify         : تأیید کد → ورود کاربر موجود یا اعلام «کاربر جدید»
+ *  - login-password : ورود با شماره موبایل + رمز عبور (حالت پیش‌فرض otpEnabled=false)
  *
- * ⚠️ کد تأیید در این نسخه ثابت و آزمایشی است (12345) و به هیچ سرویس پیامکی
- * وصل نیست. ساختار OtpCode عمداً آماده اتصال سرویس واقعی است تا در فاز بعد
- * فقط «تولید و ارسال کد» عوض شود و بقیه جریان دست‌نخورده بماند.
+ * ⚠️ وقتی otpEnabled خاموش است کد تأیید لازم نیست و ورود با رمز عبور انجام
+ * می‌شود؛ سوئیچ از پنل مدیریت (تنظیمات) کنترل می‌شود و از /api/platform/config
+ * به رابط کاربری اعلام می‌گردد.
  */
 
 const OTP_TTL_SECONDS = 120;
@@ -35,8 +37,8 @@ function profileStatusOf(user: {
   installerProfile?: { status: string } | null;
   shopProfile?: { status: string } | null;
 }): string {
-  if (user.role === "installer") return user.installerProfile?.status ?? "PENDING_VERIFICATION";
-  if (user.role === "shop") return user.shopProfile?.status ?? "PENDING_VERIFICATION";
+  if (user.role === "installer") return user.installerProfile?.status ?? "INCOMPLETE";
+  if (user.role === "shop") return user.shopProfile?.status ?? "INCOMPLETE";
   return "ACTIVE";
 }
 
@@ -50,6 +52,72 @@ export async function POST(request: Request) {
   }
 
   const action = body.action;
+
+  // ── ۰) ورود با رمز عبور — حالت پیش‌فرض (otpEnabled خاموش) ──
+  if (action === "login-password") {
+    const phone = normalizePhone(body.phone);
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!phone || !password) {
+      return NextResponse.json({ ok: false, error: "شماره موبایل و رمز عبور را وارد کنید." }, { status: 400 });
+    }
+    await ensureSeed();
+
+    const user = await db.user.findUnique({
+      where: { phone },
+      include: {
+        installerProfile: { select: { status: true } },
+        shopProfile: { select: { status: true } },
+      },
+    });
+
+    // پیام یکسان برای «حساب ندارد» و «رمز غلط» — افشای وجود حساب نداریم
+    const genericError = "شماره موبایل یا رمز عبور اشتباه است.";
+    if (!user || !user.passwordHash) {
+      if (user && !user.passwordHash) {
+        // حساب قدیمی OTP — رمزی ندارد؛ راهنمایی صادقانه
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "این حساب با کد تأیید ساخته شده و رمز عبوری برای آن تنظیم نشده است. مدیر می‌تواند حالت کد تأیید را از تنظیمات پنل (otpEnabled) فعال کند.",
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ ok: false, error: genericError }, { status: 401 });
+    }
+
+    if (!verifyPassword(password, user.passwordHash)) {
+      await writeAudit({
+        action: "LOGIN_PASSWORD_FAILED",
+        entityType: "User",
+        entityId: user.id,
+        details: { phone: maskPhone(user.phone) },
+      });
+      return NextResponse.json({ ok: false, error: genericError }, { status: 401 });
+    }
+
+    await createSession(user.id, user.role);
+    await writeAudit({
+      actorId: user.id,
+      actorName: user.displayName,
+      actorRole: user.role,
+      action: "USER_LOGIN",
+      entityType: "User",
+      entityId: user.id,
+      details: { phone: maskPhone(user.phone), method: "PASSWORD" },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      user: {
+        id: user.id,
+        role: user.role,
+        displayName: user.displayName,
+        profileStatus: profileStatusOf(user),
+      },
+    });
+  }
 
   // ── ۱) درخواست کد تأیید ──
   if (action === "request") {

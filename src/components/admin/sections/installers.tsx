@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, HardHat, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { BadgeCheck, HardHat, ImageOff, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,10 +23,12 @@ import {
 
 const PENDING_TONE = "amber" as const;
 const ACTIVE_TONE = "green" as const;
+const INCOMPLETE_TONE = "slate" as const;
 
 function statusLabel(status: string): string {
   if (status === "ACTIVE") return "فعال — قرارداد و سفته تأیید شده";
-  if (status === "PENDING_VERIFICATION") return "در انتظار تأیید حضوری";
+  if (status === "PENDING_VERIFICATION") return "در انتظار تأیید حضوری — مدارک ارسال شده";
+  if (status === "INCOMPLETE") return "ناقص — مدارک هنوز از پنل نصاب ارسال نشده";
   return status;
 }
 
@@ -92,11 +94,17 @@ export function InstallersSection() {
             <article key={installer.id} className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <img
-                    src={installer.photoUrl}
-                    alt={`عکس ${installer.fullName}`}
-                    className="size-12 shrink-0 rounded-xl border border-slate-100 object-cover"
-                  />
+                  {installer.photoUrl ? (
+                    <img
+                      src={installer.photoUrl}
+                      alt={`عکس ${installer.fullName}`}
+                      className="size-12 shrink-0 rounded-xl border border-slate-100 object-cover"
+                    />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300">
+                      <ImageOff className="size-5" />
+                    </span>
+                  )}
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-extrabold text-brand-navy">{installer.fullName}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
@@ -105,8 +113,10 @@ export function InstallersSection() {
                     </p>
                   </div>
                 </div>
-                <StatusChip tone={installer.status === "ACTIVE" ? ACTIVE_TONE : PENDING_TONE}>
-                  {installer.status === "ACTIVE" ? "فعال" : "در انتظار تأیید"}
+                <StatusChip
+                  tone={installer.status === "ACTIVE" ? ACTIVE_TONE : installer.status === "INCOMPLETE" ? INCOMPLETE_TONE : PENDING_TONE}
+                >
+                  {installer.status === "ACTIVE" ? "فعال" : installer.status === "INCOMPLETE" ? "ناقص" : "در انتظار تأیید"}
                 </StatusChip>
               </div>
 
@@ -154,13 +164,22 @@ export function InstallersSection() {
                 <DetailRow label="شماره موبایل" value={selected.phone} icon />
                 <DetailRow label="کد ملی" value={selected.nationalId} />
                 <DetailRow label="شهر" value={selected.city} />
+                <DetailRow label="کد پستی" value={selected.postalCode} ltr />
                 <DetailRow label="آدرس محل سکونت (محرمانه)" value={selected.residenceAddress} />
                 <DetailRow label="سابقه کار" value={selected.workHistory} />
                 <DetailRow label="تخصص‌ها" value={specialtyKeysToLabels(selected.specialties)} />
                 <DetailRow label="شماره شبا" value={selected.sheba} ltr />
                 <div className="flex gap-3">
-                  <img src={selected.photoUrl} alt={`عکس ${selected.fullName}`} className="size-20 rounded-xl border border-slate-100 object-cover" />
-                  <img src={selected.nationalCardUrl} alt="کارت ملی" className="size-20 rounded-xl border border-slate-100 object-cover" />
+                  {selected.photoUrl ? (
+                    <img src={selected.photoUrl} alt={`عکس ${selected.fullName}`} className="size-20 rounded-xl border border-slate-100 object-cover" />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-20 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">بدون عکس</span>
+                  )}
+                  {selected.nationalCardUrl ? (
+                    <img src={selected.nationalCardUrl} alt="کارت ملی" className="size-20 rounded-xl border border-slate-100 object-cover" />
+                  ) : (
+                    <span aria-hidden="true" className="flex size-20 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-400">بدون کارت ملی</span>
+                  )}
                 </div>
               </div>
 
@@ -168,6 +187,10 @@ export function InstallersSection() {
                 <p className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 p-3.5 text-[12px] font-bold text-emerald-700">
                   <BadgeCheck className="size-4" aria-hidden="true" />
                   این پرونده فعال است — تأییدکننده: {selected.verifiedByName ?? "—"}
+                </p>
+              ) : selected.status === "INCOMPLETE" ? (
+                <p className="mt-4 rounded-xl bg-slate-50 p-3.5 text-[12px] font-bold leading-6 text-slate-500">
+                  این پرونده هنوز مدارکش را از پنل شخصی نصاب ارسال نکرده است؛ تأیید حضوری فقط پس از تکمیل مدارک معنا دارد.
                 </p>
               ) : (
                 <Button type="button" className="mt-4 w-full" onClick={() => void handleVerify()} disabled={verifying}>
@@ -182,13 +205,13 @@ export function InstallersSection() {
   );
 }
 
-function DetailRow({ label, value, ltr, icon }: { label: string; value: string; ltr?: boolean; icon?: boolean }) {
+function DetailRow({ label, value, ltr, icon }: { label: string; value: string | null; ltr?: boolean; icon?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl bg-slate-50 p-3">
       <span className="shrink-0 text-[11px] font-bold text-slate-500">{label}</span>
       <span dir={ltr ? "ltr" : undefined} className="min-w-0 break-words text-left text-[12px] font-semibold text-slate-800">
         {icon ? <Phone className="ml-1 inline size-3 text-slate-400" aria-hidden="true" /> : null}
-        {value}
+        {value ?? "— هنوز ثبت نشده"}
       </span>
     </div>
   );

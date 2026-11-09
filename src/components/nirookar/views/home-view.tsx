@@ -1,17 +1,24 @@
 "use client";
 
-import { Bell, CircleQuestionMark, Crown, Info, LineChart, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, CircleQuestionMark, Crown, Info, LayoutDashboard, LineChart, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { DemoToolbar } from "@/components/nirookar/demo-toolbar";
 import { Logo } from "@/components/nirookar/logo";
 import { RoleCard } from "@/components/nirookar/role-card";
 import { useAuth } from "@/hooks/use-auth";
-import { navigateToView } from "@/lib/navigation";
+import { navigateToView, type ViewId } from "@/lib/navigation";
 import { ROLE_REGISTRY } from "@/lib/roles";
 import { APP_BUILD, APP_VERSION } from "@/lib/version";
 
 const NOTIFICATIONS_DISABLED_MESSAGE = "اعلان‌ها در نسخه‌های بعدی فعال می‌شود";
+
+/** نگاشت نقش کاربر عادی به پنل شخصی او */
+const PANEL_BY_ROLE: Record<string, ViewId> = {
+  customer: "panel-customer",
+  installer: "panel-installer",
+  shop: "panel-shop",
+};
 
 const DESKTOP_LINKS: readonly { view: "guide" | "about" | "status"; label: string; icon: typeof Info }[] = [
   { view: "guide", label: "راهنما", icon: CircleQuestionMark },
@@ -39,6 +46,15 @@ function HeaderSession() {
           <Crown className="size-4" aria-hidden="true" />
           اتاق فرمان / مدیریت
         </a>
+      ) : PANEL_BY_ROLE[user.role] ? (
+        <button
+          type="button"
+          onClick={() => navigateToView(PANEL_BY_ROLE[user.role])}
+          className="flex items-center gap-1.5 rounded-xl border border-brand-teal/30 bg-brand-teal-light px-3.5 py-2 text-[13px] font-black text-brand-teal transition-colors hover:bg-brand-teal/15"
+        >
+          <LayoutDashboard className="size-4" aria-hidden="true" />
+          پنل من
+        </button>
       ) : null}
       <span className="max-w-36 truncate rounded-xl bg-brand-slate-light px-3 py-2 text-[12px] font-bold text-brand-navy">
         {user.displayName}
@@ -100,8 +116,9 @@ export function HomeView() {
           <h1 className="text-[28px] font-black text-brand-navy sm:text-3xl lg:text-4xl">خوش آمدید</h1>
           <p className="mt-2 text-sm text-slate-500 lg:text-base">لطفاً نقش خود را برای ورود انتخاب کنید</p>
           <p className="mt-3 hidden text-[13px] leading-7 text-slate-500 sm:block">
-            نیروکار بازارگاه چندخدمتی خدمات فنی، نصب و فروشگاه‌های مرتبط است. ورود با کد تأیید (OTP) انجام می‌شود
-            و قابلیت‌های اصلی مرحله‌به‌مرحله و با تأیید مالک پروژه اضافه می‌شوند.
+            نیروکار بازارگاه چندخدمتی خدمات فنی، نصب و فروشگاه‌های مرتبط است. ورود با شماره موبایل و رمز عبور انجام
+            می‌شود (یا کد تأیید در صورت فعال بودن از پنل مدیریت) و قابلیت‌های اصلی مرحله‌به‌مرحله و با تأیید مالک
+            پروژه اضافه می‌شوند.
           </p>
         </div>
 
@@ -139,6 +156,15 @@ function MobileSession() {
         >
           <Crown className="size-5" aria-hidden="true" />
         </a>
+      ) : PANEL_BY_ROLE[user.role] ? (
+        <button
+          type="button"
+          onClick={() => navigateToView(PANEL_BY_ROLE[user.role])}
+          aria-label="پنل من"
+          className="flex size-10 items-center justify-center rounded-xl bg-brand-teal-light text-brand-teal transition-colors hover:bg-brand-teal/15"
+        >
+          <LayoutDashboard className="size-5" aria-hidden="true" />
+        </button>
       ) : null}
       <button
         type="button"

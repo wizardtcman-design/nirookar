@@ -2,9 +2,12 @@ import type { AuthRepository } from "@/services/contracts/auth-repository";
 import type {
   ApiError,
   AuthUser,
+  InstallerDocuments,
   OtpRequestResult,
   OtpVerifyResult,
+  OwnProfileResult,
   RegistrationData,
+  ShopDocuments,
 } from "@/types/auth";
 
 /**
@@ -45,12 +48,38 @@ export class HttpAuthRepository implements AuthRepository {
     });
   }
 
+  async loginWithPassword(phone: string, password: string): Promise<AuthUser> {
+    const result = await requestJson<{ ok: true; user: AuthUser }>("/api/auth", {
+      method: "POST",
+      body: JSON.stringify({ action: "login-password", phone, password }),
+    });
+    return result.user;
+  }
+
   async register(data: RegistrationData): Promise<AuthUser> {
     const result = await requestJson<{ ok: true; user: AuthUser }>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     });
     return result.user;
+  }
+
+  async getMyProfile(): Promise<OwnProfileResult> {
+    return requestJson<OwnProfileResult>("/api/profile");
+  }
+
+  async submitInstallerDocuments(documents: InstallerDocuments): Promise<{ status: string }> {
+    return requestJson<{ ok: true; status: string }>("/api/profile/documents", {
+      method: "PUT",
+      body: JSON.stringify(documents),
+    });
+  }
+
+  async submitShopDocuments(documents: ShopDocuments): Promise<{ status: string }> {
+    return requestJson<{ ok: true; status: string }>("/api/profile/documents", {
+      method: "PUT",
+      body: JSON.stringify(documents),
+    });
   }
 
   async me(): Promise<AuthUser | null> {

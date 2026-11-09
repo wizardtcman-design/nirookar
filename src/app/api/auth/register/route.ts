@@ -2,25 +2,34 @@ import { NextResponse } from "next/server";
 import { SPECIALTY_KEYS } from "@shared/specialties";
 import {
   isValidIranianNationalId,
-  isValidIranianSheba,
   isValidMobile,
   normalizeDigits,
   validateRequiredText,
 } from "@shared/validation";
 import { db } from "@/lib/db";
 import { writeAudit } from "@/server/audit";
+import { hashPassword } from "@/server/password";
 import { ensureSeed } from "@/server/seed";
 import { createSession } from "@/server/session";
 
 /**
- * POST /api/auth/register — ثبت‌نام واقعی سه نقش (فاز ۲ گام ۱).
+ * POST /api/auth/register — ثبت‌نام اولیه سه نقش (فاز ۲ گام ۲ — نسخه 0.1.2).
  *
- * اعتبارسنجی کامل سمت سرور (الگوریتم کد ملی، شبا، تخصص‌ها، شهر فعال) +
- * جلوگیری از ثبت تکراری کد ملی + هشدار ادمین در Audit Log.
- * وضعیت اولیه نصاب و فروشگاه: PENDING_VERIFICATION (بررسی حضوری قرارداد و سفته).
+ * جریان جدید طبق دستور مالک:
+ *  - ثبت‌نام اولیه = «شماره موبایل + کد ملی (الزامی و یکتا در سراسر پلتفرم) +
+ *    نام و نام خانوادگی + رمز عبور» + فیلد اختصاصی نقش:
+ *      نصاب: تخصص‌ها + سابقه کار قبلی / فروشگاه: نام فروشگاه / مشتری: حداقل داده.
+ *  - رمز عبور الزامی است مگر وقتی سوئیچ otpEnabled در تنظیمات پنل فعال باشد
+ *    (جریان قدیمی OTP — آنجا رمز اختیاری است).
+ *  - مدارک (کد پستی، آدرس، شبا، عکس‌ها) دیگر در ثبت‌نام جمع نمی‌شوند؛ از کارت
+ *    «تکمیل احراز هویت و مدارک» در پنل شخصی نصاب/فروشگاه ارسال می‌شوند.
+ *  - وضعیت اولیه نصاب/فروشگاه: INCOMPLETE → پس از ارسال مدارک: PENDING_VERIFICATION
+ *    → پس از تأیید حضوری قرارداد و سفته توسط ادمین: ACTIVE.
+ *  - کاربر بلافاصله پس از ثبت‌نام وارد پنل شخصی خود می‌شود (نشست واقعی ایجاد می‌شود).
  */
 
 const MAX_IMAGE_CHARS = 800_000; // حدود ۶۰۰ کیلوبایت dataURL — تصاویر سمت کلاینت فشرده می‌شوند
+const MIN_PASSWORD_LENGTH = 6;
 
 type RegisterRole = "customer" | "installer" | "shop";
 
@@ -36,12 +45,6 @@ function normalizeNationalId(raw: unknown): string | null {
   return isValidIranianNationalId(value) ? value : null;
 }
 
-function normalizeSheba(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const value = normalizeDigits(raw).replace(/\s/g, "").toUpperCase();
-  return isValidIranianSheba(value) ? value : null;
-}
-
 function isImageDataUrl(raw: unknown): raw is string {
   return (
     typeof raw === "string" &&
@@ -54,11 +57,14 @@ function bad(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
-async function getActiveCities(): Promise<string[]> {
+async function getPlatformSettings() {
+  const { sanitizePlatformSettings } = await import("@shared/platform-settings");
   const settings = await db.platformSettings.findUnique({ where: { id: "singleton" } });
-  if (!settings) return [];
-  const parsed = JSON.parse(settings.dataJson) as { cities?: string[] };
-  return parsed.cities ?? [];
+  if (!settings) {
+    const { DEFAULT_PLATFORM_SETTINGS } = await import("@shared/platform-settings");
+    return DEFAULT_PLATFORM_SETTINGS;
+  }
+  return sanitizePlatformSettings(JSON.parse(settings.dataJson) as Record<string, unknown>);
 }
 
 export async function POST(request: Request) {
@@ -80,29 +86,77 @@ export async function POST(request: Request) {
   }
   const registerRole = role as RegisterRole;
 
-  const existing = await db.user.findUnique({ where: { phone } });
-  if (existing) {
+  const existingPhone = await db.user.findUnique({ where: { phone } });
+  if (existingPhone) {
     return bad("این شماره قبلاً ثبت شده است؛ لطفاً وارد شوید.", 409);
   }
 
+  // ── کد ملی: الزامی و یکتا در سراسر پلتفرم (همه نقش‌ها) ──
+  const nationalId = normalizeNationalId(body.nationalId);
+  if (typeof body.nationalId === "string" && normalizeDigits(body.nationalId).replace(/\D/g, "") && !nationalId) {
+    return bad("کد ملی معتبر نیست (الگوریتم صحت‌سنجی ایران رد شد).");
+  }
+  if (!nationalId) return bad("کد ملی الزامی است و باید معتبر باشد.");
+
+  const duplicateUser = await db.user.findUnique({ where: { nationalId } });
+  if (duplicateUser) {
+    await writeAudit({
+      action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
+      entityType: "User",
+      entityId: duplicateUser.id,
+      details: {
+        attemptedRole: registerRole,
+        existingRole: duplicateUser.role,
+        existingName: duplicateUser.displayName,
+      },
+    });
+    return bad("این کد ملی قبلاً در نیروکار ثبت شده است (هر کد ملی فقط یک حساب دارد).", 409);
+  }
+  // پرونده‌های قدیمی که کد ملی‌شان فقط در جدول پروفایل است
+  const legacyInstaller = await db.installerProfile.findUnique({ where: { nationalId } });
+  const legacyShop = legacyInstaller ? null : await db.shopProfile.findUnique({ where: { nationalId } });
+  if (legacyInstaller || legacyShop) {
+    await writeAudit({
+      action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
+      entityType: legacyInstaller ? "InstallerProfile" : "ShopProfile",
+      entityId: (legacyInstaller ?? legacyShop)?.id ?? null,
+      details: { attemptedRole: registerRole, note: "مغایرت با پرونده قدیمی فاز قبل" },
+    });
+    return bad("این کد ملی قبلاً برای یک پرونده ثبت شده است.", 409);
+  }
+
+  // ── رمز عبور: الزامی در حالت پیش‌فرض (otpEnabled خاموش) ──
+  const settings = await getPlatformSettings();
+  const password = typeof body.password === "string" ? body.password : "";
+  if (password && password.length < MIN_PASSWORD_LENGTH) {
+    return bad(`رمز عبور باید حداقل ${MIN_PASSWORD_LENGTH} کاراکتر باشد.`);
+  }
+  if (!password && !settings.otpEnabled) {
+    return bad("رمز عبور الزامی است (حداقل ۶ کاراکتر).");
+  }
+
+  // ── نام و نام خانوادگی (همه نقش‌ها) ──
+  const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+  const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+  const firstNameCheck = validateRequiredText(firstName, 2);
+  const lastNameCheck = validateRequiredText(lastName, 2);
+  if (!firstNameCheck.ok) return bad(`نام: ${firstNameCheck.message}`);
+  if (!lastNameCheck.ok) return bad(`نام خانوادگی: ${lastNameCheck.message}`);
+
   // شهر باید جزو شهرهای فعالِ تعریف‌شده در پنل ادمین باشد (بدون هاردکد شهر)
-  const activeCities = await getActiveCities();
+  const activeCities = settings.cities;
   const city = typeof body.city === "string" ? body.city.trim() : "";
-  if (registerRole !== "shop" && !activeCities.includes(city)) {
+  if (!activeCities.includes(city)) {
     return bad("شهر انتخاب‌شده در حال حاضر فعال نیست. شهرهای فعال از پنل مدیریت تعیین می‌شود.");
   }
 
+  const passwordHash = password ? hashPassword(password) : null;
+  const authMethod = passwordHash ? "PASSWORD" : "OTP_SANDBOX";
+
   // ─────────────────────────────────────────────
-  // مشتری — حداقل داده، عکس اختیاری
+  // مشتری — حداقل داده؛ عکس اختیاری
   // ─────────────────────────────────────────────
   if (registerRole === "customer") {
-    const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
-    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
-    const firstNameCheck = validateRequiredText(firstName, 2);
-    const lastNameCheck = validateRequiredText(lastName, 2);
-    if (!firstNameCheck.ok) return bad(`نام: ${firstNameCheck.message}`);
-    if (!lastNameCheck.ok) return bad(`نام خانوادگی: ${lastNameCheck.message}`);
-
     const neighborhood = typeof body.neighborhood === "string" ? body.neighborhood.trim() : "";
     const photoUrl = body.photoUrl === undefined || body.photoUrl === null ? null : body.photoUrl;
     if (photoUrl !== null && !isImageDataUrl(photoUrl)) {
@@ -114,6 +168,8 @@ export async function POST(request: Request) {
         phone,
         role: "customer",
         displayName: `${firstName} ${lastName}`.trim(),
+        nationalId,
+        passwordHash,
         customerProfile: {
           create: { city, neighborhood: neighborhood || null, photoUrl },
         },
@@ -128,7 +184,7 @@ export async function POST(request: Request) {
       action: "USER_REGISTERED",
       entityType: "CustomerProfile",
       entityId: user.customerProfile?.id ?? null,
-      details: { role: "customer", city },
+      details: { role: "customer", city, method: authMethod },
     });
     await createSession(user.id, user.role);
 
@@ -139,26 +195,13 @@ export async function POST(request: Request) {
   }
 
   // ─────────────────────────────────────────────
-  // نصاب — پرونده کامل + کد ملی Unique
+  // نصاب — ثبت‌نام اولیه (هویت + تخصص + سابقه)؛ مدارک از پنل شخصی
   // ─────────────────────────────────────────────
   if (registerRole === "installer") {
-    const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
-    const nationalId = normalizeNationalId(body.nationalId);
-    const residenceAddress = typeof body.residenceAddress === "string" ? body.residenceAddress.trim() : "";
+    const fullName = `${firstName} ${lastName}`.trim();
     const workHistory = typeof body.workHistory === "string" ? body.workHistory.trim() : "";
-    const sheba = normalizeSheba(body.sheba);
-
-    const nameCheck = validateRequiredText(fullName, 3);
-    if (!nameCheck.ok) return bad(`نام و نام خانوادگی: ${nameCheck.message}`);
-    if (typeof body.nationalId === "string" && normalizeDigits(body.nationalId).replace(/\D/g, "") && !nationalId) {
-      return bad("کد ملی معتبر نیست (الگوریتم صحت‌سنجی ایران رد شد).");
-    }
-    if (!nationalId) return bad("کد ملی معتبر نیست.");
-    const addressCheck = validateRequiredText(residenceAddress, 10);
-    if (!addressCheck.ok) return bad("آدرس دقیق محل سکونت باید کامل وارد شود (محرمانه — فقط برای ادمین).");
     const historyCheck = validateRequiredText(workHistory, 10);
     if (!historyCheck.ok) return bad("سابقه کار و فروشگاه‌های محل فعالیت قبلی باید کامل وارد شود.");
-    if (!sheba) return bad("شماره شبا معتبر نیست.");
 
     const rawSpecialties = Array.isArray(body.specialties) ? body.specialties : [];
     const specialties = rawSpecialties
@@ -166,38 +209,21 @@ export async function POST(request: Request) {
       .filter((key) => SPECIALTY_KEYS.includes(key));
     if (!specialties.length) return bad("حداقل یک تخصص را انتخاب کنید.");
 
-    if (!isImageDataUrl(body.photoUrl)) return bad("عکس پروفایل واقعی الزامی است.");
-    if (!isImageDataUrl(body.nationalCardUrl)) return bad("تصویر کارت ملی الزامی است.");
-
-    // قفل کد ملی: هر کد ملی فقط یک پروفایل نصاب (حتی با شماره موبایل دیگر)
-    const duplicate = await db.installerProfile.findUnique({ where: { nationalId } });
-    if (duplicate) {
-      await writeAudit({
-        action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
-        entityType: "InstallerProfile",
-        entityId: duplicate.id,
-        details: { attemptedRole: "installer", existingProfile: duplicate.fullName },
-      });
-      return bad("این کد ملی قبلاً برای یک پروفایل نصاب ثبت شده است.", 409);
-    }
-
     const user = await db.user.create({
       data: {
         phone,
         role: "installer",
         displayName: fullName,
+        nationalId,
+        passwordHash,
         installerProfile: {
           create: {
             fullName,
             nationalId,
             city,
-            residenceAddress,
             workHistory,
             specialties: JSON.stringify(specialties),
-            sheba,
-            photoUrl: body.photoUrl,
-            nationalCardUrl: body.nationalCardUrl,
-            status: "PENDING_VERIFICATION",
+            status: "INCOMPLETE",
           },
         },
       },
@@ -211,7 +237,13 @@ export async function POST(request: Request) {
       action: "USER_REGISTERED",
       entityType: "InstallerProfile",
       entityId: user.installerProfile?.id ?? null,
-      details: { role: "installer", city, specialties },
+      details: {
+        role: "installer",
+        city,
+        specialties,
+        method: authMethod,
+        note: "ثبت‌نام اولیه — مدارک هنوز از پنل شخصی ارسال نشده (INCOMPLETE)",
+      },
     });
     await createSession(user.id, user.role);
 
@@ -221,60 +253,33 @@ export async function POST(request: Request) {
         id: user.id,
         role: "installer",
         displayName: user.displayName,
-        profileStatus: "PENDING_VERIFICATION",
+        profileStatus: "INCOMPLETE",
       },
     });
   }
 
   // ─────────────────────────────────────────────
-  // فروشگاه — پرونده کامل + کد ملی Unique
+  // فروشگاه — ثبت‌نام اولیه (نام فروشگاه + هویت مالک)؛ مدارک از پنل شخصی
   // ─────────────────────────────────────────────
   const shopName = typeof body.shopName === "string" ? body.shopName.trim() : "";
-  const ownerName = typeof body.ownerName === "string" ? body.ownerName.trim() : "";
-  const nationalId = normalizeNationalId(body.nationalId);
-  const address = typeof body.address === "string" ? body.address.trim() : "";
-  const contactPhone = normalizePhone(body.contactPhone) ?? phone;
-  const sheba = normalizeSheba(body.sheba);
-
   const shopNameCheck = validateRequiredText(shopName, 3);
   if (!shopNameCheck.ok) return bad(`نام فروشگاه: ${shopNameCheck.message}`);
-  const ownerCheck = validateRequiredText(ownerName, 3);
-  if (!ownerCheck.ok) return bad(`نام مالک: ${ownerCheck.message}`);
-  if (typeof body.nationalId === "string" && normalizeDigits(body.nationalId).replace(/\D/g, "") && !nationalId) {
-    return bad("کد ملی معتبر نیست (الگوریتم صحت‌سنجی ایران رد شد).");
-  }
-  if (!nationalId) return bad("کد ملی معتبر نیست.");
-  const addressCheck = validateRequiredText(address, 10);
-  if (!addressCheck.ok) return bad("آدرس دقیق فروشگاه باید کامل وارد شود.");
-  if (!sheba) return bad("شماره شبا معتبر نیست.");
-  if (!isImageDataUrl(body.logoUrl)) return bad("لوگو یا تصویر سردر فروشگاه الزامی است.");
-
-  const duplicate = await db.shopProfile.findUnique({ where: { nationalId } });
-  if (duplicate) {
-    await writeAudit({
-      action: "DUPLICATE_NATIONAL_ID_ATTEMPT",
-      entityType: "ShopProfile",
-      entityId: duplicate.id,
-      details: { attemptedRole: "shop", existingProfile: duplicate.shopName },
-    });
-    return bad("این کد ملی قبلاً برای یک فروشگاه ثبت شده است.", 409);
-  }
+  const ownerName = `${firstName} ${lastName}`.trim();
 
   const user = await db.user.create({
     data: {
       phone,
       role: "shop",
       displayName: shopName,
+      nationalId,
+      passwordHash,
       shopProfile: {
         create: {
           shopName,
           ownerName,
           nationalId,
-          address,
-          contactPhone,
-          sheba,
-          logoUrl: body.logoUrl,
-          status: "PENDING_VERIFICATION",
+          contactPhone: phone,
+          status: "INCOMPLETE",
         },
       },
     },
@@ -288,7 +293,13 @@ export async function POST(request: Request) {
     action: "USER_REGISTERED",
     entityType: "ShopProfile",
     entityId: user.shopProfile?.id ?? null,
-    details: { role: "shop", shopName, ownerName },
+    details: {
+      role: "shop",
+      shopName,
+      ownerName,
+      method: authMethod,
+      note: "ثبت‌نام اولیه — مدارک هنوز از پنل شخصی ارسال نشده (INCOMPLETE)",
+    },
   });
   await createSession(user.id, user.role);
 
@@ -298,7 +309,7 @@ export async function POST(request: Request) {
       id: user.id,
       role: "shop",
       displayName: user.displayName,
-      profileStatus: "PENDING_VERIFICATION",
+      profileStatus: "INCOMPLETE",
     },
   });
 }

@@ -23,6 +23,7 @@ const ROLE_FA: Record<string, string> = {
 function statusMeta(status: string): { label: string; tone: "green" | "amber" | "red" | "slate" } {
   if (status === "ACTIVE") return { label: "فعال", tone: "green" };
   if (status === "PENDING_VERIFICATION") return { label: "در انتظار تأیید", tone: "amber" };
+  if (status === "INCOMPLETE") return { label: "ناقص (بدون مدارک)", tone: "slate" };
   if (status === "REJECTED") return { label: "رد شده", tone: "red" };
   return { label: status, tone: "slate" };
 }

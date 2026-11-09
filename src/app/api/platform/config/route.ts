@@ -24,5 +24,7 @@ export async function GET() {
     bnplLabel: settings.bnplLabel,
     pricingMethodsEnabled: settings.pricingMethodsEnabled,
     videoMaxSeconds: settings.videoMaxSeconds,
+    // سوئیچ جریان احراز هویت: false → ورود/ثبت‌نام با رمز عبور، true → کد تأیید
+    otpEnabled: settings.otpEnabled,
   });
 }

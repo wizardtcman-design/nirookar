@@ -13,10 +13,12 @@ export interface AdminShopRow {
   shopName: string;
   ownerName: string;
   nationalId: string;
-  address: string;
+  postalCode: string | null;
+  address: string | null;
   contactPhone: string;
-  sheba: string;
-  logoUrl: string;
+  sheba: string | null;
+  logoUrl: string | null;
+  nationalCardUrl: string | null;
   status: string;
   contractSignedAt: string | null;
   verifiedByName: string | null;
@@ -39,10 +41,12 @@ export async function GET() {
     shopName: profile.shopName,
     ownerName: profile.ownerName,
     nationalId: profile.nationalId,
+    postalCode: profile.postalCode,
     address: profile.address,
     contactPhone: profile.contactPhone,
     sheba: profile.sheba,
     logoUrl: profile.logoUrl,
+    nationalCardUrl: profile.nationalCardUrl,
     status: profile.status,
     contractSignedAt: profile.contractSignedAt?.toISOString() ?? null,
     verifiedByName: profile.verifiedByName,
