@@ -20,52 +20,58 @@ const PANEL_BY_ROLE: Record<string, ViewId> = {
   shop: "panel-shop",
 };
 
-const DESKTOP_LINKS: readonly { view: "guide" | "about" | "status"; label: string; icon: typeof Info }[] = [
+const NAV_LINKS: readonly { view: "guide" | "about" | "status"; label: string; icon: typeof Info }[] = [
   { view: "guide", label: "راهنما", icon: CircleQuestionMark },
   { view: "about", label: "درباره ما", icon: Info },
   { view: "status", label: "وضعیت توسعه", icon: LineChart },
 ];
 
-/** ناحیه نشست در هدر — نام کاربر، خروج و دکمه طلایی «اتاق فرمان» فقط برای مدیران */
+/**
+ * ناحیه نشست در هدر — نسخه 0.1.3 (طبق دستور مالک):
+ * دکمه‌های «پنل من»، «اتاق فرمان» و «خروج» در همه عرض‌ها (حتی موبایل ۳۲۰px)
+ * با برچسب متنی واضح و در قالب ردیف‌های چندخطی flex-wrap نمایان‌اند؛
+ * هیچ دکمه‌ای مخفی نمی‌شود.
+ */
 function HeaderSession() {
   const { user, adminRole, loading, logout } = useAuth();
 
   if (loading) {
-    return <span aria-hidden="true" className="hidden h-9 w-24 animate-pulse rounded-xl bg-slate-100 lg:block" />;
+    return <span aria-hidden="true" className="h-9 w-20 animate-pulse rounded-xl bg-slate-100" />;
   }
 
   if (!user) return null;
 
   return (
-    <div className="hidden items-center gap-2 lg:flex">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {adminRole ? (
         <a
           href="#/admin"
-          className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-[13px] font-black text-amber-950 shadow-sm transition-colors hover:bg-amber-500"
+          aria-label="اتاق فرمان / مدیریت"
+          className="flex min-h-[40px] items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-[12px] font-black text-amber-950 shadow-sm transition-colors hover:bg-amber-500"
         >
-          <Crown className="size-4" aria-hidden="true" />
-          اتاق فرمان / مدیریت
+          <Crown className="size-4 shrink-0" aria-hidden="true" />
+          <span className="whitespace-nowrap">اتاق فرمان</span>
         </a>
       ) : PANEL_BY_ROLE[user.role] ? (
         <button
           type="button"
           onClick={() => navigateToView(PANEL_BY_ROLE[user.role])}
-          className="flex items-center gap-1.5 rounded-xl border border-brand-teal/30 bg-brand-teal-light px-3.5 py-2 text-[13px] font-black text-brand-teal transition-colors hover:bg-brand-teal/15"
+          className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-brand-teal/30 bg-brand-teal-light px-3 py-2 text-[12px] font-black text-brand-teal transition-colors hover:bg-brand-teal/15"
         >
-          <LayoutDashboard className="size-4" aria-hidden="true" />
-          پنل من
+          <LayoutDashboard className="size-4 shrink-0" aria-hidden="true" />
+          <span className="whitespace-nowrap">پنل من</span>
         </button>
       ) : null}
-      <span className="max-w-36 truncate rounded-xl bg-brand-slate-light px-3 py-2 text-[12px] font-bold text-brand-navy">
+      <span className="min-w-0 max-w-32 truncate rounded-xl bg-brand-slate-light px-2.5 py-2 text-[11.5px] font-bold text-brand-navy">
         {user.displayName}
       </span>
       <button
         type="button"
         onClick={() => void logout()}
-        aria-label="خروج از حساب"
-        className="flex size-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-brand-navy"
+        className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[12px] font-bold text-rose-600 transition-colors hover:bg-rose-50"
       >
-        <LogOut className="size-4.5" aria-hidden="true" />
+        <LogOut className="size-4 shrink-0" aria-hidden="true" />
+        <span className="whitespace-nowrap">خروج</span>
       </button>
     </div>
   );
@@ -75,54 +81,55 @@ function HeaderSession() {
 export function HomeView() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-brand-bg/90 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
-          <Logo />
+      {/*
+        هدر — نسخه 0.1.3 (جراحی ریسپانسیو): یک ناوبری واحد برای همه عرض‌ها.
+        در موبایل آیتم‌ها به ردیف‌های تمیز flex-wrap می‌شوند و هیچ لینک یا
+        دکمه‌ای مخفی نمی‌شود (بدون hidden sm:/lg:).
+      */}
+      <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-brand-bg/95 shadow-sm backdrop-blur">
+        <div className="mx-auto w-full max-w-6xl px-4 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <Logo />
 
-          {/* ناوبری دسکتاپ — لینک پنل مدیریت عمومی نیست (دستور مالک) */}
-          <nav aria-label="ناوبری اصلی" className="hidden items-center gap-1 lg:flex">
-            {DESKTOP_LINKS.map(({ view, label, icon: Icon }) => (
+            {/* ناوبری — لینک پنل مدیریت عمومی نیست (دستور مالک) */}
+            <nav aria-label="ناوبری اصلی" className="flex min-w-0 flex-wrap items-center gap-1.5">
+              {NAV_LINKS.map(({ view, label, icon: Icon }) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => navigateToView(view)}
+                  className="flex min-h-[40px] items-center gap-1.5 rounded-xl px-2.5 py-2 text-[12.5px] font-bold text-slate-600 transition-colors hover:bg-white hover:text-brand-navy"
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span className="whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+              <HeaderSession />
               <button
-                key={view}
                 type="button"
-                onClick={() => navigateToView(view)}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold text-slate-600 transition-colors hover:bg-white hover:text-brand-navy"
+                onClick={() => toast.info(NOTIFICATIONS_DISABLED_MESSAGE)}
+                aria-label="اعلان‌ها"
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-brand-navy"
               >
-                <Icon className="size-4" aria-hidden="true" />
-                {label}
+                <Bell className="size-5" aria-hidden="true" />
               </button>
-            ))}
-            <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-200" />
-            <HeaderSession />
-          </nav>
-
-          {/* نشست در موبایل: فقط دکمه طلایی مدیر */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <MobileSession />
-            <button
-              type="button"
-              onClick={() => toast.info(NOTIFICATIONS_DISABLED_MESSAGE)}
-              aria-label="اعلان‌ها"
-              className="flex size-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-brand-navy"
-            >
-              <Bell className="size-5" aria-hidden="true" />
-            </button>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 px-5 pb-32">
+      <main className="flex-1 px-5 pb-10">
         <div className="mx-auto mt-6 max-w-sm text-center sm:max-w-lg lg:mt-12 lg:max-w-3xl">
           <h1 className="text-[28px] font-black text-brand-navy sm:text-3xl lg:text-4xl">خوش آمدید</h1>
           <p className="mt-2 text-sm text-slate-500 lg:text-base">لطفاً نقش خود را برای ورود انتخاب کنید</p>
-          <p className="mt-3 hidden text-[13px] leading-7 text-slate-500 sm:block">
+          <p className="mt-3 text-[13px] leading-7 text-slate-500">
             نیروکار بازارگاه چندخدمتی خدمات فنی، نصب و فروشگاه‌های مرتبط است. ورود با شماره موبایل و رمز عبور انجام
             می‌شود (یا کد تأیید در صورت فعال بودن از پنل مدیریت) و قابلیت‌های اصلی مرحله‌به‌مرحله و با تأیید مالک
             پروژه اضافه می‌شوند.
           </p>
         </div>
 
-        {/* کارت‌های نقش: موبایل ستونی (مانند قبل)، دسکتاپ سه‌ستونه */}
+        {/* کارت‌های نقش: موبایل ستونی، دسکتاپ سه‌ستونه */}
         <div className="mx-auto mt-8 grid w-full max-w-sm gap-4 sm:max-w-lg lg:mt-10 lg:max-w-5xl lg:grid-cols-3 lg:gap-6">
           {ROLE_REGISTRY.map((role) => (
             <RoleCard key={role.id} role={role} onClick={() => navigateToView(`login-${role.id}`)} />
@@ -137,43 +144,6 @@ export function HomeView() {
 
       {/* ابزار نمایشی — سوییچر سریع پنل مدیریت (فقط برای تست مالک) */}
       <DemoToolbar />
-    </div>
-  );
-}
-
-function MobileSession() {
-  const { user, adminRole, loading, logout } = useAuth();
-
-  if (loading || !user) return null;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      {adminRole ? (
-        <a
-          href="#/admin"
-          aria-label="اتاق فرمان / مدیریت"
-          className="flex size-10 items-center justify-center rounded-xl bg-amber-400 text-amber-950 shadow-sm transition-colors hover:bg-amber-500"
-        >
-          <Crown className="size-5" aria-hidden="true" />
-        </a>
-      ) : PANEL_BY_ROLE[user.role] ? (
-        <button
-          type="button"
-          onClick={() => navigateToView(PANEL_BY_ROLE[user.role])}
-          aria-label="پنل من"
-          className="flex size-10 items-center justify-center rounded-xl bg-brand-teal-light text-brand-teal transition-colors hover:bg-brand-teal/15"
-        >
-          <LayoutDashboard className="size-5" aria-hidden="true" />
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => void logout()}
-        aria-label="خروج از حساب"
-        className="flex size-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-brand-navy"
-      >
-        <LogOut className="size-5" aria-hidden="true" />
-      </button>
     </div>
   );
 }

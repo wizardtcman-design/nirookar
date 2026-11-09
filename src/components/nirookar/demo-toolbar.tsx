@@ -61,7 +61,9 @@ export function DemoToolbar() {
   }
 
   return (
-    <div className="fixed bottom-24 left-3 z-40 lg:bottom-6">
+    // موقعیت: بالای نوار ناوبری پایین موبایل (بدون تداخل)؛ در دسکتاپ پایین-چپ
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-3 z-40 lg:bottom-6">
+
       {open ? (
         <div className="mb-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
           <div className="flex items-center justify-between gap-2">

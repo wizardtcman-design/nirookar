@@ -631,7 +631,7 @@ function RbacMatrix({ currentRole }: { currentRole: AdminRole }) {
               <tr key={group.title} className="border-b border-slate-100">
                 <td className="p-2.5">
                   <span className="text-[12px] font-bold text-slate-700">{group.title}</span>
-                  <span className="mr-2 hidden text-[10px] text-slate-400 lg:inline">
+                  <span className="mr-2 mt-1 block text-[10px] text-slate-400 lg:mt-0 lg:inline">
                     ({group.permissions.map((permission) => ADMIN_PERMISSION_FA[permission]).join("، ")})
                   </span>
                 </td>

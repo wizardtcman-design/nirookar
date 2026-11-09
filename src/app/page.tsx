@@ -12,6 +12,7 @@ import { ShopPanelView } from "@/components/nirookar/views/shop-panel-view";
 import { StatusView } from "@/components/nirookar/views/status-view";
 import { AuthProvider } from "@/hooks/use-auth";
 import { isTabView, useAppView } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 /**
  * ریشه اپلیکیشن نیروکار — تمام نماها روی مسیر «/» با ناوبری hash اجرا می‌شوند.
@@ -35,7 +36,11 @@ export default function Page() {
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-brand-bg">
+      {/*
+        pb-24 فقط برای نماهای دارای نوار پایین: محتوای صفحه هرگز زیر نوار
+        ثابت پایین پنهان نمی‌شود (حتی وقتی صفحه کوتاه است).
+      */}
+      <div className={cn("min-h-screen bg-brand-bg", isTabView(view) && "pb-24")}>
         {view === "home" ? <HomeView /> : null}
         {view === "guide" ? <GuideView /> : null}
         {view === "about" ? <AboutView /> : null}
