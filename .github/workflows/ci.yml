@@ -50,6 +50,8 @@ jobs:
   mobile-apk:
     name: موبایل — ساخت APK اندروید
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
@@ -65,10 +67,14 @@ jobs:
 
       - name: نصب وابستگی‌ها
         working-directory: apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: 1
         run: npm install
 
       - name: Prebuild اندروید
         working-directory: apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: 1
         run: npx expo prebuild -p android --no-install
 
       - name: ساخت APK
@@ -77,9 +83,28 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
+      - name: آماده‌سازی فایل APK با نام خوانا
+        run: |
+          mkdir -p dist
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+             dist/nirookar-mobile-build-${{ github.run_number }}.apk
+
       - name: بارگذاری Artifact
         uses: actions/upload-artifact@v4
         with:
           name: nirookar-mobile-apk-build-${{ github.run_number }}
-          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          path: dist/*.apk
           if-no-files-found: error
+
+      - name: انتشار APK در GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}
+          name: نیروکار — APK بیلد ${{ github.run_number }}
+          body: |
+            فایل نصبی اندروید (APK) اپلیکیشن نیروکار — بیلد ${{ github.run_number }}.
+
+            **نصب:** فایل `nirookar-mobile-build-*.apk` را دانلود و روی دستگاه اندروید نصب کنید
+            (برای نصب، اجازه «منابع ناشناس» را فعال کنید).
+          files: dist/*.apk
+          make_latest: true
