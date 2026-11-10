@@ -21,13 +21,15 @@ export function AdminApp() {
   // استخراج بخش فعال از مسیر: /admin/users → users
   const section = path.replace(/^\/admin\/?/, "") || "overview";
 
+  // با هر جابه‌جایی بین بخش‌های پنل، اسکرول محتوای میانی به بالا برمی‌گردد
+  // (در پوسته اپلیکیشن، اسکرول داخل main است نه window)
   useEffect(() => {
-    window.scrollTo({ top: 0 });
+    document.getElementById("app-main")?.scrollTo({ top: 0 });
   }, [path]);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-brand-navy-dark">
+      <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center bg-brand-navy-dark">
         <div aria-label="در حال بارگذاری پنل مدیریت" className="flex flex-col items-center gap-3">
           <span className="size-8 animate-spin rounded-full border-2 border-brand-teal border-t-transparent" />
           <p className="text-xs text-slate-400">در حال بررسی دسترسی...</p>

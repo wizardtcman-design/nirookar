@@ -29,7 +29,6 @@ import {
 } from "@shared/validation";
 
 import { PanelHeader, ProfileStatusChip } from "@/components/nirookar/panel-header";
-import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { AppTextField } from "@/components/nirookar/app-text-field";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { ImageUploadField } from "@/components/nirookar/image-upload-field";
@@ -84,11 +83,8 @@ export function InstallerPanelView() {
   }, [loadProfile]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="mx-auto w-full max-w-2xl space-y-5">
       <PanelHeader title="پنل نصاب" />
-
-      <main className="flex-1 px-4 pb-12 pt-5 lg:py-8">
-        <div className="mx-auto w-full max-w-2xl space-y-5">
           {/* هویت کوتاه — نسخه 0.1.3: چیپ وضعیت در موبایل زیر اطلاعات می‌رود (بدون فشردگی) */}
           <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -203,11 +199,6 @@ export function InstallerPanelView() {
               بازگشت به صفحه اصلی
             </span>
           </PrimaryButton>
-
-          {/* نوار ناوبری درون‌کارتی — فوتر پنل (دستور مالک: همیشه داخل کادر برنامه) */}
-          <InlineTabNav className="mt-4" />
-        </div>
-      </main>
     </div>
   );
 }

@@ -30,7 +30,6 @@ import { ImageUploadField } from "@/components/nirookar/image-upload-field";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { PrimaryButton } from "@/components/nirookar/primary-button";
 import { SubPageHeader } from "@/components/nirookar/sub-page-header";
-import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { useAuth } from "@/hooks/use-auth";
 import { navigateToView } from "@/lib/navigation";
 import { getRole, ROLE_THEME_STYLES } from "@/lib/roles";
@@ -194,11 +193,8 @@ export function AuthFlowView({ role }: { role: UserRole }) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <section className="mx-auto w-full max-w-sm sm:max-w-md">
       <SubPageHeader title={resolvedStep === "register" ? headingByStep.register : definition.title} />
-
-      <main className="flex-1 px-4 pb-10 pt-5 lg:py-10">
-        <section className="mx-auto w-full max-w-sm sm:max-w-md">
           {/* نشان نقش */}
           <div className="flex flex-col items-center text-center">
             <span className={cn("flex size-16 items-center justify-center rounded-full", theme.iconWrap)}>
@@ -288,12 +284,7 @@ export function AuthFlowView({ role }: { role: UserRole }) {
             <ShieldCheck className="size-4 text-brand-teal" aria-hidden="true" />
             امن و مطمئن | نشست شما با کوکی امن سمت سرور نگهداری می‌شود
           </p>
-
-          {/* نوار ناوبری درون‌کارتی — فوتر صفحه ورود (دستور مالک: همیشه داخل کادر برنامه) */}
-          <InlineTabNav className="mt-6" />
-        </section>
-      </main>
-    </div>
+    </section>
   );
 }
 

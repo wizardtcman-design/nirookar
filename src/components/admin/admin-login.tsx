@@ -174,7 +174,7 @@ export function AdminLogin() {
   const onSubmit = passwordMode ? handlePasswordLogin : step === "phone" ? handleRequestCode : handleVerify;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-navy-dark px-4 py-10">
+    <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-brand-navy-dark px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark className="size-14 rounded-2xl text-2xl" />

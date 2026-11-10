@@ -87,18 +87,27 @@ export function useHashPath(): string {
   return useSyncExternalStore(subscribe, getHashPath, () => "/");
 }
 
-/** جابه‌جایی به یک بخش پنل مدیریت */
+/**
+ * جابه‌جایی به یک بخش پنل مدیریت
+ */
 export function navigateToAdminSection(section: string): void {
   if (typeof window === "undefined") return;
   window.location.hash = `#/admin/${section}`;
 }
 
 /**
- * نماهایی که نوار ناوبری پایین دارند.
+ * بازگشت هوشمند به صفحه قبل — طبق دستور مالک، دکمه «→ بازگشت» هدر باید
+ * دقیقاً مثل دکمه بازگشت گوشی به «صفحه قبلی» برگردد.
  *
- * نسخه 0.1.3: نمای «وضعیت» هم اضافه شد تا هیچ لینک ناوبری‌ای در موبایل
- * بدون دسترسی نماند (قبلاً فقط از منوی دسکتاپ در دسترس بود).
+ * ناوبری hash هر جابه‌جایی را در تاریخچه مرورگر ثبت می‌کند؛ پس history.back()
+ * دقیقاً یک نما عقب می‌رود. اگر تاریخچه‌ای نباشد (ورود مستقیم با لینک)، بعد از
+ * یک بازه کوتاه به خانه برمی‌گردیم تا کاربر هرگز گیر نیفتد.
  */
-export function isTabView(view: ViewId): boolean {
-  return view === "home" || view === "guide" || view === "about" || view === "status";
+export function goBackOrHome(): void {
+  if (typeof window === "undefined") return;
+  const before = window.location.hash;
+  window.history.back();
+  window.setTimeout(() => {
+    if (window.location.hash === before) navigateToView("home");
+  }, 400);
 }

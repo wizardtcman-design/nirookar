@@ -17,10 +17,10 @@ export const OFFICIAL_FIRST_VERSION = "1.0.0";
 export const APP_VERSION = "0.1.3";
 
 /** شماره Build جاری — مستقل از نسخه محصول؛ افزایشی در هر ساخت (001، 002 و ...) */
-export const APP_BUILD = "004";
+export const APP_BUILD = "005";
 
 /** برچسب اصلاح جاری بیلد — برای نمایش فوری اعمال تغییرات در پیش‌نمایش (دستور مالک) */
-export const APP_BUILD_NOTE = "نسخه اصلاح‌شده موبایل";
+export const APP_BUILD_NOTE = "پوسته اسکرول داخلی موبایل";
 
 /** برچسب فاز جاری توسعه محصول */
 export const APP_PHASE_LABEL =

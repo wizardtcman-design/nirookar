@@ -4,7 +4,6 @@ import { House, Loader2, MapPin, PackageOpen, Smartphone, UserRound } from "luci
 import { useCallback, useEffect, useState } from "react";
 
 import { PanelHeader } from "@/components/nirookar/panel-header";
-import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { HonestNotice } from "@/components/nirookar/honest-notice";
 import { PrimaryButton } from "@/components/nirookar/primary-button";
 import { navigateToView } from "@/lib/navigation";
@@ -45,11 +44,8 @@ export function CustomerPanelView() {
   }, [loadProfile]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="mx-auto w-full max-w-2xl space-y-5">
       <PanelHeader title="پنل مشتری" />
-
-      <main className="flex-1 px-4 pb-12 pt-5 lg:py-8">
-        <div className="mx-auto w-full max-w-2xl space-y-5">
           {/* حساب کاربری — نسخه 0.1.3: چیپ وضعیت در موبایل زیر اطلاعات می‌رود (بدون فشردگی) */}
           <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -114,11 +110,6 @@ export function CustomerPanelView() {
               بازگشت به صفحه اصلی
             </span>
           </PrimaryButton>
-
-          {/* نوار ناوبری درون‌کارتی — فوتر پنل (دستور مالک: همیشه داخل کادر برنامه) */}
-          <InlineTabNav className="mt-4" />
-        </div>
-      </main>
     </div>
   );
 }

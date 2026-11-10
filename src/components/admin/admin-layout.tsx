@@ -20,7 +20,6 @@ import type { AdminPermission, AdminRole } from "@shared/admin-rbac";
 import { ADMIN_ROLE_FA, roleHasPermission } from "@shared/admin-rbac";
 
 import { LogoMark } from "@/components/nirookar/logo";
-import { InlineTabNav } from "@/components/nirookar/inline-tab-nav";
 import { LiveBadge } from "@/components/admin/parts";
 import { OverviewSection } from "@/components/admin/sections/overview";
 import { UsersSection } from "@/components/admin/sections/users";
@@ -82,6 +81,10 @@ interface AdminLayoutProps {
  * چیدمان پنل مدیریت — سایدبار تیره مستقل + ناوبری موبایل.
  * منوها بر اساس مجوز نقش فیلتر می‌شوند و ورود مستقیم به بخش غیرمجاز با پیام
  * صادقانه مسدود می‌شود؛ کنترل واقعی همین مجوزها سمت سرور (API) اجرا می‌شود.
+ *
+ * بیلد ۰۰۵: پنل داخل «پوسته اپلیکیشن» (App Shell) رندر می‌شود — کل پوسته
+ * h-[100dvh] است، فقط «main» اسکرول داخلی دارد (محتوا از زیر هدر و نوار
+ * ثابت پایین رد می‌شود) و نوار درون‌کارتی تکراری حذف شده است.
  */
 export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutProps) {
   const visibleNav = ADMIN_NAV.filter((item) => roleHasPermission(role, item.permission));
@@ -92,9 +95,9 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
   const currentTitle = SECTION_TITLES[section] ?? "بخش ناشناخته";
 
   return (
-    <div className="flex min-h-screen bg-brand-bg">
+    <div className="flex h-full min-h-0 w-full bg-brand-bg">
       {/* سایدبار دسکتاپ */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-brand-navy lg:flex">
+      <aside className="hidden h-full w-64 shrink-0 flex-col overflow-y-auto bg-brand-navy lg:flex">
         <div className="flex items-center gap-3 border-b border-white/10 p-4">
           <LogoMark className="size-10 rounded-xl text-base" />
           <div className="min-w-0 leading-tight">
@@ -146,14 +149,14 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/*
           نوار بالایی — نسخه 0.1.3 (بازسازی طبق دستور مالک):
           چیدمان flex-wrap تک‌بلوکی برای همه عرض‌ها؛ در هر زیرمنو دکمه
           «→ داشبورد» و «صفحه اصلی» کاملاً جلوی چشم است و خروج هم با برچسب
           متنی واضح نمایش داده می‌شود. هیچ دکمه‌ای در موبایل مخفی نمی‌شود.
         */}
-        <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 shadow-sm backdrop-blur">
+        <header className="z-30 shrink-0 border-b border-slate-200/70 bg-white shadow-sm">
           <div className="flex w-full flex-wrap items-center gap-2 px-3 py-2">
             {section === "overview" ? (
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-navy" aria-hidden="true">
@@ -199,7 +202,7 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
           ناوبری موبایل — نسخه 0.1.3 (طبق دستور مالک): چیدمان چندخطی flex-wrap؛
           هر ۹ بخش بدون نیاز به کشیدن انگشت و همیشه کاملاً داخل کادر موبایل دیده می‌شوند.
         */}
-        <nav aria-label="منوی مدیریت (موبایل)" className="border-b border-slate-200/70 bg-white px-3 py-2 lg:hidden">
+        <nav aria-label="منوی مدیریت (موبایل)" className="shrink-0 border-b border-slate-200/70 bg-white px-3 py-2 lg:hidden">
           <div className="flex flex-wrap gap-2">
             {visibleNav.map((item) => {
               const active = item.id === section;
@@ -221,7 +224,7 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
           </div>
         </nav>
 
-        <main className="flex-1 p-4 lg:p-6">
+        <main id="app-main" className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain p-4 pb-32 lg:p-6">
           {SectionComponent ? (
             SectionComponent({ role })
           ) : (
@@ -233,9 +236,6 @@ export function AdminLayout({ role, adminName, section, onLogout }: AdminLayoutP
               </p>
             </div>
           )}
-
-          {/* نوار ناوبری درون‌کارتی — فوتر پنل مدیریت (دستور مالک: همیشه داخل کادر برنامه) */}
-          <InlineTabNav className="mt-6" />
         </main>
       </div>
     </div>
