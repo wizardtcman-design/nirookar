@@ -68,6 +68,34 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # قانون افزایش خودکار versionCode (بیلد 007+):
+      # versionCode در apps/mobile/app.json مقدار مرجع است؛ اگر از آخرین
+      # نسخه منتشرشده در Releases بزرگ‌تر یا مساوی بود، خودکار یکی بیشتر می‌شود
+      # تا اندروید همیشه نسخه جدید را «به‌روزرسانی» روی نسخه قبلی نصب کند.
+      - name: قانون افزایش خودکار versionCode
+        working-directory: apps/mobile
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.body // ""' 2>/dev/null \
+            | grep -oP 'versionCode:\s*\K[0-9]+' | tail -1 || true)
+          LATEST=${LATEST:-0}
+          CURRENT=$(node -e "console.log(require('./app.json').expo.android.versionCode)")
+          if [ "$CURRENT" -le "$LATEST" ]; then
+            NEW=$((LATEST + 1))
+            node -e "
+              const fs = require('fs');
+              const j = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+              j.expo.android.versionCode = $NEW;
+              fs.writeFileSync('app.json', JSON.stringify(j, null, 2) + '\n');
+            "
+            echo "versionCode به‌صورت خودکار ارتقا یافت: $CURRENT → $NEW"
+            echo "APK_VERSION_CODE=$NEW" >> "$GITHUB_ENV"
+          else
+            echo "versionCode: $CURRENT (بزرگ‌تر از آخرین انتشار: $LATEST) — بدون تغییر"
+            echo "APK_VERSION_CODE=$CURRENT" >> "$GITHUB_ENV"
+          fi
+
       - name: نصب وابستگی‌ها
         working-directory: apps/mobile
         env:
@@ -86,11 +114,18 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
+      # امضای ثابت (بیلد 007+): نمایش SHA-1/SHA-256 گواهی برای تأیید یکسانی امضا در همه بیلدها
+      - name: تأیید امضای دیجیتال APK
+        run: |
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
+          $APKSIGNER verify --print-certs apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
       - name: آماده‌سازی فایل APK با نام خوانا
         run: |
           mkdir -p dist
           cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
              dist/nirookar-mobile-build-${{ github.run_number }}.apk
+          ls -lh dist/
 
       - name: بارگذاری Artifact
         uses: actions/upload-artifact@v4
@@ -105,9 +140,14 @@ jobs:
           tag_name: apk-build-${{ github.run_number }}
           name: نیروکار — APK بیلد ${{ github.run_number }}
           body: |
+            <!-- versionCode: ${{ env.APK_VERSION_CODE }} -->
             فایل نصبی اندروید (APK) اپلیکیشن نیروکار — بیلد ${{ github.run_number }}.
+            نسخه 0.1.3 — versionCode: ${{ env.APK_VERSION_CODE }}
 
             **نصب:** فایل `nirookar-mobile-build-*.apk` را دانلود و روی دستگاه اندروید نصب کنید
             (برای نصب، اجازه «منابع ناشناس» را فعال کنید).
+
+            **امضای ثابت (از بیلد 007):** همه APKها با یک گواهی واحد امضا می‌شوند؛ نسخه‌های جدید بدون حذف نسخه قبلی به‌صورت به‌روزرسانی نصب می‌شوند.
+            ⚠️ اگر نسخه 006 یا قدیمی‌تر نصب دارید، یک بار باید آن را حذف و بیلد 007 را نصب کنید.
           files: dist/*.apk
           make_latest: true
